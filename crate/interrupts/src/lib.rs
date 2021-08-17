@@ -10,6 +10,7 @@ pub fn init_idt() {
 
 use lazy_static::lazy_static;
 use x86_64::structures::idt::InterruptDescriptorTable;
+use printer::{print, println};
 
 lazy_static! {
     ///Static Interrupt Descriptor Table with all of the registered interrupt types and their handler functions
@@ -72,12 +73,12 @@ use x86_64::structures::idt::PageFaultErrorCode;
 
 ///Page fault handler prints out the respective errors and stack frame and halts cpu execution
 extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
-    // use x86_64::registers::control::Cr2;
-    // !!!!!!!!!!!!!!TODO!!!!!!!!!!!!!!!!!!!! 
-    // println!("EXCEPTION: PAGE FAULT");
-    // println!("Accessed Address: {:?}", Cr2::read());
-    // println!("Error Code: {:?}", _error_code);
-    // println!("{:#?}", _stack_frame);
+    use x86_64::registers::control::Cr2;
+
+    println!("EXCEPTION: PAGE FAULT");
+    println!("Accessed Address: {:?}", Cr2::read());
+    println!("Error Code: {:?}", _error_code);
+    println!("{:#?}", _stack_frame);
     loop {
         x86_64::instructions::hlt();
     }
@@ -98,21 +99,10 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
 } 
 
 ///Breakpoints print out the stack frame at a specified breakpoint
-extern "x86-interrupt" fn breakpoint_handler(_stack_frame: InterruptStackFrame) {
-    // // !!!!!!!!!!!!!!TODO!!!!!!!!!!!!!!!!!!!! 
-    //println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame)
+extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
+
+    println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame)
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 /// Interrupt Index enum with all of the different interrupt handler types  

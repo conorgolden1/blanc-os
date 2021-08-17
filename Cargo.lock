@@ -84,6 +84,7 @@ dependencies = [
  "gdt",
  "lazy_static",
  "pic8259",
+ "printer",
  "spin 0.5.2",
  "x86_64",
 ]
