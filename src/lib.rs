@@ -17,3 +17,14 @@ pub fn halt_loop() -> ! {
         x86_64::instructions::hlt();
     }
 }
+
+use bootloader::boot_info::FrameBufferInfo;
+use printer::{WRITER, Writer};
+use spin::Mutex;
+
+pub fn init_logger(framebuffer: &'static mut [u8], info: FrameBufferInfo) {
+    let mutex_writer = Mutex::new(Writer::new(framebuffer, info));
+    WRITER.init_once(|| {
+        mutex_writer
+    });
+}

@@ -12,6 +12,7 @@ members = [
 
 [dependencies]
 x86_64 = "0.14.4"
+spin = "0.5.2"
 
 # Global Descriptor Table
 gdt = { path = "crate/gdt" } 
@@ -21,6 +22,10 @@ interrupts = { path = "crate/interrupts" }
 
 # Serial Printer
 serial = { path = "crate/serial" }
+
+# OS Printer
+printer = { path = "crate/printer" }
+
 
 
 [dependencies.bootloader]
