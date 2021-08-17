@@ -1,5 +1,5 @@
+//! Global Descriptor Table functionalitity
 #![no_std]
-
 
 use x86_64::structures::gdt::GlobalDescriptorTable;
 use x86_64::structures::tss::TaskStateSegment;

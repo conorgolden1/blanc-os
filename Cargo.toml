@@ -19,7 +19,8 @@ gdt = { path = "crate/gdt" }
 # Interrupt Handler
 interrupts = { path = "crate/interrupts" }
 
-
+# Serial Printer
+serial = { path = "crate/serial" }
 
 
 [dependencies.bootloader]
