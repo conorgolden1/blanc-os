@@ -11,6 +11,22 @@ members = [
 ]
 
 [dependencies]
+x86_64 = "0.14.4"
+
+# Global Descriptor Table
+gdt = { path = "crate/gdt" } 
+
+# Interrupt Handler
+interrupts = { path = "crate/interrupts" }
+
+
+
 
 [dependencies.bootloader]
 version = "0.10.7"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
