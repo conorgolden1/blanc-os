@@ -7,6 +7,7 @@ entry_point!(main);
 
 
 use bootloader::BootInfo;
+use memory::BootInfoFrameAllocator;
 use memory::init;
 use printer::{print, println};
 
@@ -19,16 +20,15 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     if let Some(frame_buffer) =  boot_info.framebuffer.as_mut() {
         blanc_os::init_logger(frame_buffer.buffer_mut(), frame_buffer_info);
     }
-
+    
     blanc_os::init();
 
     println!("Hello OS");
 
-    let mut page_table = unsafe { init(boot_info.recursive_index) };
-
-    for page in page_table.level_4_table().iter() {
-        println!("{:#?}", page);
-    }
+    let mut recur_page_table = unsafe { init(boot_info.recursive_index) };
+    let mut memory_map = unsafe {BootInfoFrameAllocator::init(&boot_info.memory_regions) };
+    
+    
     
     
     blanc_os::halt_loop()
