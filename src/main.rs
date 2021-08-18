@@ -20,6 +20,8 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     }
     blanc_os::init();
     
+    println!("recursive_index : {:#?}", boot_info.recursive_index);
+   
     
     blanc_os::halt_loop()
 }

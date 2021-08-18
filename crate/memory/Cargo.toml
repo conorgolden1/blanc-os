@@ -1,0 +1,13 @@
+[package]
+name = "memory"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+spin = "0.5.2"
+x86_64 = "0.14.4"
+
+[dependencies.bootloader]
+version = "0.10.7"

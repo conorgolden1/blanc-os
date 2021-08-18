@@ -26,10 +26,17 @@ serial = { path = "crate/serial" }
 # OS Printer
 printer = { path = "crate/printer" }
 
-
+# Memory
+memory = { path = "crate/memory" }
 
 [dependencies.bootloader]
 version = "0.10.7"
+metadata = ["map_page_table_recursively = true"]
+
+
+
+
+
 
 [profile.dev]
 panic = "abort"
