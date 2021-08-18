@@ -31,7 +31,11 @@ memory = { path = "crate/memory" }
 
 [dependencies.bootloader]
 version = "0.10.7"
-metadata = ["map_page_table_recursively = true"]
+
+
+[package.metadata.bootloader]
+map-page-table-recursively = true
+
 
 
 

@@ -24,7 +24,8 @@ lazy_static! {
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         idt[InterruptIndex::PrimATA.as_usize()].set_handler_fn(ata_interrupt_handler);
         idt.page_fault.set_handler_fn(page_fault_handler);
-        
+        idt.divide_error.set_handler_fn(divide_error_handler);
+        idt.general_protection_fault.set_handler_fn(general_protection_handler);
 
         idt
     };
@@ -46,6 +47,18 @@ pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
 
 use x86_64::structures::idt::InterruptStackFrame;
+use x86_64::structures::idt::SelectorErrorCode;
+
+extern "x86-interrupt" fn general_protection_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!("EXCEPTION: GENERAL PROTECTION FAULT\n{:#?}\nERROR CODE : {:#?}", stack_frame, SelectorErrorCode::new(error_code));
+}
+
+extern "x86-interrupt" fn divide_error_handler(stack_frame: InterruptStackFrame) {
+    panic!("EXCEPTION: DIVIDE ERROR\n{:#?}", stack_frame);
+}
+
+
+
 
 ///Doesnt do anything at the moment
 ///TODO: Notify the ata caller that the ata controller is ready
@@ -68,8 +81,8 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
     }
 }
 
-
 use x86_64::structures::idt::PageFaultErrorCode;
+
 
 ///Page fault handler prints out the respective errors and stack frame and halts cpu execution
 extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
@@ -140,5 +153,4 @@ impl InterruptIndex {
         usize::from(self.as_u8())
     }
 }
-
 

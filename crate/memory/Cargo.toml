@@ -9,5 +9,8 @@ edition = "2018"
 spin = "0.5.2"
 x86_64 = "0.14.4"
 
+# Printer
+printer = { path = "../printer" }
+
 [dependencies.bootloader]
 version = "0.10.7"

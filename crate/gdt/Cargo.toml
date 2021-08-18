@@ -8,6 +8,9 @@ edition = "2018"
 [dependencies]
 x86_64 = "0.14.4"
 
+# Printer
+printer = { path = "../printer" }
+
 [dependencies.lazy_static]
 version = "1.0"
 features = ["spin_no_std"]

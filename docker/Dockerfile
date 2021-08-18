@@ -8,7 +8,6 @@ RUN apt-get update && \
     nasm \
     binutils \
     grub-common \
-    qemu \
     xorriso \
     grub-pc-bin && \
     apt-get autoremove -q -y && \

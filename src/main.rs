@@ -7,6 +7,7 @@ entry_point!(main);
 
 
 use bootloader::BootInfo;
+use memory::init;
 use printer::{print, println};
 
 /// The kernels main after being handed off from the bootloader
@@ -18,12 +19,20 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     if let Some(frame_buffer) =  boot_info.framebuffer.as_mut() {
         blanc_os::init_logger(frame_buffer.buffer_mut(), frame_buffer_info);
     }
+
     blanc_os::init();
+
+    println!("Hello OS");
+
+    let mut page_table = unsafe { init(boot_info.recursive_index) };
+
+    for page in page_table.level_4_table().iter() {
+        println!("{:#?}", page);
+    }
     
-    println!("recursive_index : {:#?}", boot_info.recursive_index);
-   
     
     blanc_os::halt_loop()
+
 }
 
 
@@ -32,8 +41,7 @@ use core::{panic::PanicInfo};
 /// execution in the face of an error
 #[panic_handler]
 fn panic(_info : &PanicInfo) -> ! {
-
-    // println!("{}", _info);
+    println!("{}", _info);
     blanc_os::halt_loop()
 }
 

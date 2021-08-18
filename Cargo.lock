@@ -75,6 +75,7 @@ name = "gdt"
 version = "0.1.0"
 dependencies = [
  "lazy_static",
+ "printer",
  "x86_64",
 ]
 
@@ -137,6 +138,7 @@ name = "memory"
 version = "0.1.0"
 dependencies = [
  "bootloader",
+ "printer",
  "spin 0.5.2",
  "x86_64",
 ]

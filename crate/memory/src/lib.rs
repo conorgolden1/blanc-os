@@ -1,39 +1,37 @@
 //! OS page table mapping from physical to virtual
 #![no_std]
 
-use spin::Once;
-use x86_64::{PhysAddr, VirtAddr, structures::paging::{PageTable, OffsetPageTable, 
-            PhysFrame, Size4KiB, FrameAllocator}};
+use bootloader::boot_info::Optional;
+use x86_64::{structures::paging::{PageTable, RecursivePageTable}};
 
 
-pub static PHYS_MEM_OFFSET: Once<VirtAddr> = Once::new();
-
-///Get the memory address of the level 4 Page table and map it in virtual memory,
-///Then return the new offset page table with the level 4 mapping
-///The physical memory offset is the offset to the bootinfo physical memory frame
-pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
-    PHYS_MEM_OFFSET.call_once(|| { physical_memory_offset.clone() });
-    let level_4_table = active_level_4_table(physical_memory_offset);
-    OffsetPageTable::new(level_4_table, physical_memory_offset)
+///Using the recursive index find the level 4 table address and
+///create a page table
+///
+/// # Safety
+/// This function is unsafe because if the recursive index is not a valid index this
+/// can result in undefined behavior
+pub unsafe fn init(recursive_index: Optional<u16>) -> RecursivePageTable<'static> {
+    let level_4_table = active_level_4_table(*recursive_index.as_ref().unwrap());
+    RecursivePageTable::new(level_4_table).unwrap()
 }
 
 
 ///Map the active level 4 table to a virtual page table in memory
-unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
-    use x86_64::registers::control::Cr3;
+unsafe fn active_level_4_table(recursive_index: u16) -> &'static mut PageTable {
+    let r = recursive_index as u64;
+    let sign: u64;
 
-    let (level_4_table_frame, _) = Cr3::read();
+    if r > 255 {
+        sign = 0o177777 << 48;
+    } else {
+        sign = 0;
+    }
 
-    // Get the start address of the lvl 4 table frame
-    let phys = level_4_table_frame.start_address();
-    // Create a virtual address mapped the to physical address
-    let virt = physical_memory_offset + phys.as_u64();
-    // Create a page table obj at the virtual address that is subsequently mapped to
-    // the physical frame
-    let page_table_ptr: *mut PageTable = virt.as_mut_ptr();
-
-    &mut *page_table_ptr
-
+    let level_4_table_addr =
+    sign | (r << 39) | (r << 30) | (r << 21) | (r << 12);
+    let level_4_table = level_4_table_addr as *mut PageTable;
+    &mut *level_4_table
 }
 
 
