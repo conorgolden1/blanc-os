@@ -3,6 +3,14 @@
 version = 3
 
 [[package]]
+name = "allocator"
+version = "0.1.0"
+dependencies = [
+ "spin 0.5.2",
+ "x86_64",
+]
+
+[[package]]
 name = "bit_field"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18,6 +26,7 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 name = "blanc_os"
 version = "0.1.0"
 dependencies = [
+ "allocator",
  "bootloader",
  "gdt",
  "interrupts",
@@ -42,12 +51,6 @@ checksum = "aaaa9db3339d32c2622f2e5d0731eb82a468d3439797c9d4fe426744fe2bd551"
 dependencies = [
  "json",
 ]
-
-[[package]]
-name = "cfg-if"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "conquer-once"
@@ -125,15 +128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "log"
-version = "0.4.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "memory"
 version = "0.1.0"
 dependencies = [
@@ -159,7 +153,6 @@ dependencies = [
  "bootloader",
  "conquer-once",
  "font8x8",
- "log",
  "spin 0.5.2",
  "x86_64",
 ]

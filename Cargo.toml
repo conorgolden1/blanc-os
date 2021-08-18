@@ -29,17 +29,15 @@ printer = { path = "crate/printer" }
 # Memory
 memory = { path = "crate/memory" }
 
+# Heap Allocator
+allocator = { path = "crate/allocator" } 
+
 [dependencies.bootloader]
 version = "0.10.7"
 
 
 [package.metadata.bootloader]
 map-page-table-recursively = true
-
-
-
-
-
 
 
 [profile.dev]

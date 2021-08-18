@@ -28,6 +28,7 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     let mut recur_page_table = unsafe { init(boot_info.recursive_index) };
     let mut memory_map = unsafe {BootInfoFrameAllocator::init(&boot_info.memory_regions) };
     
+    allocator::init_heap(&mut recur_page_table, &mut memory_map).expect("Heap did not properly map");
     
     
     
