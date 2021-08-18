@@ -32,6 +32,9 @@ memory = { path = "crate/memory" }
 # Heap Allocator
 allocator = { path = "crate/allocator" } 
 
+# Process Stack
+stack = { path = "crate/stack" }
+
 [dependencies.bootloader]
 version = "0.10.7"
 

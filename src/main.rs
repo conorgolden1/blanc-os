@@ -7,9 +7,11 @@ entry_point!(main);
 
 
 use bootloader::BootInfo;
-use memory::BootInfoFrameAllocator;
+use memory::PhysFrameAllocator;
 use memory::init;
 use printer::{print, println};
+use x86_64::structures::paging::FrameAllocator;
+use x86_64::structures::paging::FrameDeallocator;
 
 /// The kernels main after being handed off from the bootloader
 ///
@@ -23,13 +25,17 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     
     blanc_os::init();
 
-    println!("Hello OS");
 
-    let mut recur_page_table = unsafe { init(boot_info.recursive_index) };
-    let mut memory_map = unsafe {BootInfoFrameAllocator::init(&boot_info.memory_regions) };
+    let mut page_table = unsafe { init(boot_info.recursive_index) };
+    let mut frame_allocator = unsafe {PhysFrameAllocator::init(&boot_info.memory_regions, &mut page_table) };
+
+    allocator::init_heap(&mut page_table, &mut frame_allocator).expect("Heap did not properly map");
     
-    allocator::init_heap(&mut recur_page_table, &mut memory_map).expect("Heap did not properly map");
-    
+    let x = frame_allocator.allocate_frame().unwrap();
+    unsafe { frame_allocator.deallocate_frame(x) };
+    let y = frame_allocator.allocate_frame().unwrap();
+    println!("{:#?} {:#?} {}", x, y, x == y);
+    assert_eq!(x, y);
     
     
     blanc_os::halt_loop()

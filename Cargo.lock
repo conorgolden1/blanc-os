@@ -11,6 +11,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bit-vec"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
+
+[[package]]
 name = "bit_field"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -34,6 +40,7 @@ dependencies = [
  "printer",
  "serial",
  "spin 0.5.2",
+ "stack",
  "x86_64",
 ]
 
@@ -131,6 +138,7 @@ dependencies = [
 name = "memory"
 version = "0.1.0"
 dependencies = [
+ "bit-vec",
  "bootloader",
  "printer",
  "spin 0.5.2",
@@ -193,6 +201,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "511254be0c5bcf062b019a6c89c01a664aa359ded62f78aa72c6fc137c0590e5"
 dependencies = [
  "lock_api",
+]
+
+[[package]]
+name = "stack"
+version = "0.1.0"
+dependencies = [
+ "x86_64",
 ]
 
 [[package]]
