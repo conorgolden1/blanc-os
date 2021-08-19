@@ -43,8 +43,8 @@ use x86_64::PhysAddr;
 // /// A wrapper struct for the bootinfo memory map to allocate usable
 // /// frames from the memory map
 pub struct PhysFrameAllocator {
-    usable_memory_region : MemoryRegion,
-    bit_map_region : MemoryRegion,
+    pub usable_memory_region : MemoryRegion,
+    pub bit_map_region : MemoryRegion,
 }
 
 
@@ -106,18 +106,21 @@ unsafe impl FrameAllocator<Size4KiB> for PhysFrameAllocator {
             let mut y = unsafe {* x } as u64;
             let clone = y.clone();
             let mut index = 0;
-            
-            while index < 64 {
-                if y & 1 == 0 {
-                    // Usable PhysFrame
-                    unsafe {* x = clone | (0x01 << index)};
-                    return Some(self.get_frame(x as u64 - self.bit_map_region.start + index))
-                }
-                index += 1;
-                y = y >> 1;
-            }
 
-            unsafe { x = x.add(64) };
+            if y !=  0xFFFFFFFFFFFFFFFF {
+                while index < 64 {
+                    if y & 1 == 0 {
+                        // Usable PhysFrame
+                        unsafe {* x = clone | (0x01 << index)};
+                        return Some(self.get_frame(x as u64 - self.bit_map_region.start + index))
+                    }
+                    index += 1;
+                    y = y >> 1;
+                }
+            }
+            
+
+            unsafe { x = x.add(8) };
         }
         None
     }
@@ -139,17 +142,17 @@ impl FrameDeallocator<Size4KiB> for PhysFrameAllocator {
     /// deallocation
     // TODO: DOC AND CLEAN
     unsafe fn deallocate_frame(&mut self, frame: PhysFrame<Size4KiB>) {
-        let start = frame.start_address().as_u64();
-        let usable_addr = start - self.usable_memory_region.start ;
-        let index  = usable_addr / 4096;
+        // Get addr of frame along usable_mem_region
+        let usable_addr = frame.start_address().as_u64() - self.usable_memory_region.start ;
         
+        // Get the index of the frame in the bitmap
+        let index  = usable_addr / 4096;
+
         let u64_byte = index / 64;
-        let index = index % 64;
+        let bit_index = index % 64;
 
-        let u64_byte_ptr = (self.bit_map_region.start + u64_byte) as *mut u64;
-        *u64_byte_ptr = *u64_byte_ptr.clone() & !(1 << index);
-
-
+        let u64_byte_ptr = (self.bit_map_region.start + (u64_byte * 64)) as *mut u64;
+        *u64_byte_ptr = *u64_byte_ptr.clone() & !(1 << bit_index);
     }
 }
 
@@ -176,6 +179,7 @@ fn map_bit_frames(bit_map_region: MemoryRegion, page_table: &mut RecursivePageTa
 
     for page in page_range {
         let frame = frames.next().ok_or(MapToError::FrameAllocationFailed)?;
+        //println!("{:#?}", frame);
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
         unsafe {
             page_table.map_to(page, frame, flags, &mut empty_allocator ).unwrap().flush()
@@ -194,3 +198,8 @@ unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
     }
 }
 
+
+
+pub struct PageAllocator {
+    page_table : RecursivePageTable<'static>,
+} 
