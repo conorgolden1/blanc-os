@@ -6,6 +6,7 @@ version = 3
 name = "allocator"
 version = "0.1.0"
 dependencies = [
+ "memory",
  "spin 0.5.2",
  "x86_64",
 ]
@@ -41,6 +42,7 @@ dependencies = [
  "serial",
  "spin 0.5.2",
  "stack",
+ "task",
  "x86_64",
 ]
 
@@ -209,6 +211,10 @@ version = "0.1.0"
 dependencies = [
  "x86_64",
 ]
+
+[[package]]
+name = "task"
+version = "0.1.0"
 
 [[package]]
 name = "uart_16550"

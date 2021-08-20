@@ -12,7 +12,8 @@ members = [
 
 [dependencies]
 x86_64 = "0.14.4"
-spin = "0.5.2"
+spin = { version = "0.5.2" }
+
 
 # Global Descriptor Table
 gdt = { path = "crate/gdt" } 
@@ -35,16 +36,21 @@ allocator = { path = "crate/allocator" }
 # Process Stack
 stack = { path = "crate/stack" }
 
+# Task structures
+task = { path = "crate/task" }
+
+
 [dependencies.bootloader]
 version = "0.10.7"
 
 
 [package.metadata.bootloader]
 map-page-table-recursively = true
-
+kernel-stack-address = "0xFFFF_F000_0001_9000"
 
 [profile.dev]
 panic = "abort"
 
 [profile.release]
 panic = "abort"
+
