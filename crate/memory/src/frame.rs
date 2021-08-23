@@ -1,6 +1,7 @@
 //! Physical Frame structures and functionality
 
 use bootloader::boot_info::{MemoryRegion, MemoryRegionKind, MemoryRegions};
+use printer::print;
 use spin::{Mutex, Once};
 use x86_64::structures::paging::mapper::MapToError;
 use x86_64::{PhysAddr, VirtAddr};
@@ -58,6 +59,7 @@ impl PhysFrameAllocator {
         // Identity Map the physical bit map frames to pages
         map_bit_frames(bit_map_region, page_table, num_bit_map_frames).unwrap();
         
+        
         // Init global frame allocator
         FRAME_ALLOCATOR.call_once( || 
             PhysFrameAllocatorWrapper::new(
@@ -69,6 +71,13 @@ impl PhysFrameAllocator {
                 )
             ));
     }
+
+    
+    /// Get the physical frame from the bitmap index
+    fn frame_from_bit_index(&self, index : u64) -> PhysFrame {
+        let frame_addr = PhysAddr::new(self.usable_memory_region.start + (index << 12));
+        PhysFrame::<Size4KiB>::containing_address(frame_addr) 
+    }
 }
 
 // TODO: CONSIDER TURNING BITMAP HANDLING ROUTINES INTO A STRUCT
@@ -79,6 +88,7 @@ unsafe impl FrameAllocator<Size4KiB> for PhysFrameAllocator {
     /// We navigate the bitmap for a empty bit and return the Physical Frame
     /// if there, else no frames are available and return None
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
+        //print!("Called!");
         let mut bm_ptr = self.bit_map_region.start as *mut u64;
         while bm_ptr < self.bit_map_region.end as *mut u64{
             let mut quadword = unsafe {* bm_ptr } as u64;
@@ -92,9 +102,7 @@ unsafe impl FrameAllocator<Size4KiB> for PhysFrameAllocator {
                         // Usable PhysFrame
                         unsafe {* bm_ptr = qw_clone | (0x01 << index)};
                         // Return the frame containing the physical address of the bit in the bitmap
-                        return Some(PhysFrame::<Size4KiB>::containing_address(
-                                    PhysAddr::new(bm_ptr as u64 - self.bit_map_region.start + index))
-                                )
+                        return Some(self.frame_from_bit_index(bm_ptr as u64 - self.bit_map_region.start + index))
                     }
                     index += 1;
                     quadword >>= 1;
@@ -172,7 +180,7 @@ fn map_bit_frames(bit_map_region: MemoryRegion, page_table: &mut RecursivePageTa
 
 /// Wrapper struct for implementing FrameAllocator traits around the mutex type
 pub struct PhysFrameAllocatorWrapper {
-    mutex_frame_allocator : Mutex<PhysFrameAllocator>,
+    pub mutex_frame_allocator : Mutex<PhysFrameAllocator>,
 }
 
 impl PhysFrameAllocatorWrapper {
