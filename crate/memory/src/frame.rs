@@ -1,7 +1,6 @@
 //! Physical Frame structures and functionality
 
 use bootloader::boot_info::{MemoryRegion, MemoryRegionKind, MemoryRegions};
-use printer::print;
 use spin::{Mutex, Once};
 use x86_64::structures::paging::mapper::MapToError;
 use x86_64::{PhysAddr, VirtAddr};
@@ -72,7 +71,7 @@ impl PhysFrameAllocator {
             ));
     }
 
-    
+
     /// Get the physical frame from the bitmap index
     fn frame_from_bit_index(&self, index : u64) -> PhysFrame {
         let frame_addr = PhysAddr::new(self.usable_memory_region.start + (index << 12));
@@ -132,12 +131,12 @@ impl FrameDeallocator<Size4KiB> for PhysFrameAllocator {
         let usable_addr = frame.start_address().as_u64() - self.usable_memory_region.start ;
         
         // Get the index of the frame in the bitmap
-        let index  = usable_addr / 4096;
+        let index  = usable_addr >> 12;
 
-        let u64_byte = index / 64;
+        let u64_byte = index >> 6;
         let bit_index = index % 64;
 
-        let u64_byte_ptr = (self.bit_map_region.start + (u64_byte * 64)) as *mut u64;
+        let u64_byte_ptr = (self.bit_map_region.start + (u64_byte << 6)) as *mut u64;
         *u64_byte_ptr &= !(1 << bit_index);
     }
 }
