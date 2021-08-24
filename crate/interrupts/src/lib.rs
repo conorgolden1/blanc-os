@@ -8,6 +8,7 @@ pub fn init_idt() {
     IDT.load();
 }
 
+use coop::keyboard;
 use lazy_static::lazy_static;
 use x86_64::structures::idt::InterruptDescriptorTable;
 use printer::{print, println};
@@ -71,11 +72,11 @@ extern "x86-interrupt" fn ata_interrupt_handler(_stack_frame: InterruptStackFram
 
 ///Reads the key code from 0x60 port and adds that to the keyboard task handler
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    // use x86_64::instructions::port::Port;
-    // !!!!!!!!!!!!!!TODO!!!!!!!!!!!!!!!!!!!! 
-    // let mut port = Port::new(0x60);
-    // let scancode: u8 = unsafe{ port.read() };
-    // crate::task::keyboard::add_scancode(scancode); 
+    use x86_64::instructions::port::Port;
+    let mut port = Port::new(0x60);
+    let scancode: u8 = unsafe{ port.read() };
+    keyboard::add_scancode(scancode); 
+
     unsafe {
         PICS.lock().notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
     }
@@ -88,10 +89,20 @@ use x86_64::structures::idt::PageFaultErrorCode;
 extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
     use x86_64::registers::control::Cr2;
 
+
+    let address = Cr2::read();
+    let reason = PageFaultErrorCode::from_bits_truncate(_stack_frame.code_segment);
+
+    // if address.as_u64() < 0x8000_0000_0000 {
+    //     let signal 
+    // } 
+
     println!("EXCEPTION: PAGE FAULT");
     println!("Accessed Address: {:?}", Cr2::read());
     println!("Error Code: {:?}", _error_code);
     println!("{:#?}", _stack_frame);
+
+    
     loop {
         x86_64::instructions::hlt();
     }
@@ -100,7 +111,7 @@ extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, 
 
 ///Used for task time slices
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
-
+    
     unsafe {
         PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
     }
