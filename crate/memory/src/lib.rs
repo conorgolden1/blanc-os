@@ -1,13 +1,16 @@
-//! OS page table mapping from physical to virtual
+//! OS Memory functionality and Structures
 #![no_std]
-#![feature(once_cell)]
+#![feature(asm)]
 
-use core::iter::{FlatMap, Map};
-use bootloader::boot_info::{MemoryRegion, Optional};
-use x86_64::{VirtAddr, structures::paging::{Mapper, Page, PageTable, PageTableFlags, RecursivePageTable, mapper::MapToError}};
+use bootloader::boot_info::{Optional};
+use spin::Once;
+use x86_64::{VirtAddr, structures::paging::{OffsetPageTable, PageTable}};
 
-pub mod frame;
-pub mod address_space;
+
+pub mod virt;
+pub mod phys;
+
+pub static PHYSICAL_MEMORY_OFFSET : Once<VirtAddr> = Once::new();
 
 ///Using the recursive index find the level 4 table address and
 ///create a page table
@@ -15,32 +18,22 @@ pub mod address_space;
 /// # Safety
 /// This function is unsafe because if the recursive index is not a valid index this
 /// can result in undefined behavior
-pub unsafe fn init(recursive_index: Optional<u16>) -> RecursivePageTable<'static> {
-    let level_4_table = active_level_4_table(*recursive_index.as_ref().unwrap());
-    RecursivePageTable::new(level_4_table).unwrap()
+pub unsafe fn init(physical_memory_offset: Optional<u64>) -> OffsetPageTable<'static> {
+    PHYSICAL_MEMORY_OFFSET.call_once(|| VirtAddr::new(physical_memory_offset.into_option().unwrap()));
+    let level_4_table = active_level_4_table();
+    OffsetPageTable::new(level_4_table, *PHYSICAL_MEMORY_OFFSET.wait().unwrap())
 }
 
 
 ///Find the base address of the active level page table with the recursive index
-unsafe fn active_level_4_table(recursive_index: u16) -> &'static mut PageTable {
-    let r = recursive_index as u64;
-    let sign: u64;
+unsafe fn active_level_4_table() -> &'static mut PageTable {
 
-    if r > 255 {
-        sign = 0o177777 << 48;
-    } else {
-        sign = 0;
-    }
+    let (phys_addr, _) = x86_64::registers::control::Cr3::read();
+    let virt_addr = VirtAddr::new(
+        PHYSICAL_MEMORY_OFFSET.wait().unwrap().as_u64() + phys_addr.start_address().as_u64());
 
-    let level_4_table_addr = sign | (r << 39) | (r << 30) | (r << 21) | (r << 12);
-    let level_4_table = level_4_table_addr as *mut PageTable;
+    let page_table_ptr: *mut PageTable = virt_addr.as_mut_ptr();
 
-    &mut *level_4_table
+    &mut *page_table_ptr
 }
 
-
-
-
-pub struct PageAllocator {
-    page_table : RecursivePageTable<'static>,
-} 

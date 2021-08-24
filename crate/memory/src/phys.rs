@@ -30,7 +30,7 @@ impl PhysFrameAllocator {
     /// the first being a bit map region that will be able to indicate wether a frame is free or used
     /// in the new usable region. And a new usable region minus the consumed bit map region frames.
     /// This function will not assign a new global frame allocator again once initialized
-    pub fn init(memory_regions: &'static MemoryRegions, page_table : &mut RecursivePageTable) {
+    pub fn init(memory_regions: &'static MemoryRegions, page_table : &mut OffsetPageTable) {
         let mut usable_memory_region = MemoryRegion::empty();
         let mut bit_map_region = MemoryRegion::empty();
 
@@ -80,7 +80,7 @@ impl PhysFrameAllocator {
 }
 
 // TODO: CONSIDER TURNING BITMAP HANDLING ROUTINES INTO A STRUCT
-use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, Mapper, Page, PageTableFlags, PhysFrame, RecursivePageTable, Size4KiB};
+use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, Mapper, OffsetPageTable, Page, PageTableFlags, PhysFrame, Size4KiB};
 
 unsafe impl FrameAllocator<Size4KiB> for PhysFrameAllocator {
     /// Allocate the next available frame in the usable memory region.
@@ -146,7 +146,7 @@ impl FrameDeallocator<Size4KiB> for PhysFrameAllocator {
 
 
 /// This function is called during the initialization of the frame allocator to identity map the bit map frames
-fn map_bit_frames(bit_map_region: MemoryRegion, page_table: &mut RecursivePageTable, num_bit_map_frames : u64) ->  Result<(), MapToError<Size4KiB>> {
+fn map_bit_frames(bit_map_region: MemoryRegion, page_table: &mut OffsetPageTable, num_bit_map_frames : u64) ->  Result<(), MapToError<Size4KiB>> {
     // Create pages in the bit map region
     let page_range = {
         let bit_map_start = VirtAddr::new(bit_map_region.start);
@@ -165,7 +165,6 @@ fn map_bit_frames(bit_map_region: MemoryRegion, page_table: &mut RecursivePageTa
 
     for page in page_range {
         let frame = frames.next().ok_or(MapToError::FrameAllocationFailed)?;
-        //println!("{:#?}", frame);
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
         unsafe {
             page_table.map_to(page, frame, flags, &mut empty_allocator ).unwrap().flush()
@@ -179,14 +178,14 @@ fn map_bit_frames(bit_map_region: MemoryRegion, page_table: &mut RecursivePageTa
 
 /// Wrapper struct for implementing FrameAllocator traits around the mutex type
 pub struct PhysFrameAllocatorWrapper {
-    pub mutex_frame_allocator : Mutex<PhysFrameAllocator>,
+    pub inner : Mutex<PhysFrameAllocator>,
 }
 
 impl PhysFrameAllocatorWrapper {
     /// Return a new [PhysFrameAllocatorWrapper] object with a mutex wrapped in a PhysFrameAllocator
-    pub fn new(mutex_frame_allocator : Mutex<PhysFrameAllocator>) -> Self {
+    pub fn new(inner : Mutex<PhysFrameAllocator>) -> Self {
         Self {
-            mutex_frame_allocator
+            inner
         }
     }
 }
@@ -195,7 +194,7 @@ impl PhysFrameAllocatorWrapper {
 unsafe impl FrameAllocator<Size4KiB> for &PhysFrameAllocatorWrapper {
     /// Obtains mutex lock and calls inner [`Allocate Frame`](PhysFrameAllocator::allocate_frame)
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
-        self.mutex_frame_allocator.lock().allocate_frame()
+        self.inner.lock().allocate_frame()
     }
 }
 
@@ -203,7 +202,7 @@ unsafe impl FrameAllocator<Size4KiB> for &PhysFrameAllocatorWrapper {
 impl FrameDeallocator<Size4KiB> for &PhysFrameAllocatorWrapper {
     /// Obtains mutex lock and calls inner [`Deallocate Frame`](PhysFrameAllocator::deallocate_frame)
     unsafe fn deallocate_frame(&mut self, frame: PhysFrame<Size4KiB>) {
-        self.mutex_frame_allocator.lock().deallocate_frame(frame)
+        self.inner.lock().deallocate_frame(frame)
     }
 }
 
