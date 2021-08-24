@@ -19,7 +19,7 @@ pub fn add_scancode(scancode: u8) {
             WAKER.wake();
         }
     } else {
-        println!("WARNING: scancode queue uninitialized");
+        // println!("WARNING: scancode queue uninitialized");
     }
 }
 
@@ -31,7 +31,7 @@ pub struct ScancodeStream {
 impl ScancodeStream {
     pub fn new() -> Self {
         SCANCODE_QUEUE.try_init_once(|| ArrayQueue::new(100))
-            .expect("ScancodeStream::new should only be called once");
+            .expect("Keyboard ScancodeStream::new should only be called once");
         ScancodeStream {_private: ()}
     }
 }

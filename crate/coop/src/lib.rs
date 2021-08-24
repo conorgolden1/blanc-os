@@ -8,7 +8,7 @@ use alloc::boxed::Box;
 
 pub mod keyboard;
 pub mod executor;
-
+pub mod mouse;
 
 /// Task ID struct that enforces unique ID's to be handed out to various tasks
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
