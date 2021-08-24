@@ -1,20 +1,3 @@
-/// Context of registers used for task switching
-#[derive(Default)]
-#[repr(C, packed)]
-pub struct Context {
-    cr3: u64,
-    rbp: u64,
-    r12: u64,
-    r13: u64,
-    r14: u64,
-    r15: u64,
-    rbx: u64,
-    rflags: u64,
-    rip: u64,
-}
-
-
-
 /// Switch the context between two tasks
 ///
 /// 

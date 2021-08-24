@@ -2,16 +2,29 @@
 #![feature(asm)]
 #![feature(naked_functions)]
 #![feature(ptr_internals)]
+#![feature(thread_local)]
 
-use core::{ptr::Unique, sync::atomic::{AtomicUsize, Ordering}, task::Context};
-
+pub mod scheduler;
 pub mod context_switch;
 
-pub struct Task {
-    // context : Unique<Context>,
+use core::sync::atomic::{AtomicUsize, Ordering};
 
+extern crate alloc;
+pub struct Task {
+    task_id : TaskID,
+    state : TaskState,
+    context : Context,
 }
 
+impl Task {
+    fn task_id(&self) -> TaskID {
+        self.task_id
+    }
+
+    pub fn state(&self) -> TaskState {
+        self.state
+    }
+}
 
 
 
@@ -24,7 +37,7 @@ pub enum Ring {
 
 
 
-
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 /// TaskID struct used for atomically getting new task ID's
 pub struct TaskID(usize);
 
@@ -63,4 +76,20 @@ pub enum TaskState {
 
     /// Process has finished execution
     Finished,
+}
+
+
+/// Context of registers used for task switching
+#[derive(Default)]
+#[repr(C, packed)]
+pub struct Context {
+    cr3: u64,
+    rbp: u64,
+    r12: u64,
+    r13: u64,
+    r14: u64,
+    r15: u64,
+    rbx: u64,
+    rflags: u64,
+    rip: u64,
 }
