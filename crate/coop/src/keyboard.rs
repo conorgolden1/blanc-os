@@ -13,7 +13,7 @@ use printer::{print, println};
 
 pub fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get()  {
-        if let Err(_) = queue.push(scancode)  {
+        if queue.push(scancode).is_err()  {
             println!("WARNING: scancode queue full; dropping keyboard input");   
         } else {
             WAKER.wake();
@@ -46,7 +46,7 @@ impl Stream for ScancodeStream {
          if let Ok(scancode) = queue.pop() {
              return Poll::Ready(Some(scancode));
          }
-         WAKER.register(&context.waker());
+         WAKER.register(context.waker());
          match queue.pop() {
              Ok(scancode) => {
                  WAKER.take();
@@ -54,6 +54,12 @@ impl Stream for ScancodeStream {
              }
              Err(crossbeam_queue::PopError) => Poll::Pending,
          }
+    }
+}
+
+impl Default for ScancodeStream {
+    fn default() -> Self {
+    Self::new()
     }
 }
 

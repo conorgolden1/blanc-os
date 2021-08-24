@@ -42,7 +42,7 @@ impl Executor {
                 None => continue,
             };
             let waker = waker_cache.entry(task_id).or_insert_with(
-                || TaskWaker::new(task_id, task_queue.clone())
+                || TaskWaker::new_waker(task_id, task_queue.clone())
             );
 
             let mut context = Context::from_waker(waker);
@@ -78,6 +78,12 @@ impl Executor {
 }
 
 
+impl Default for Executor {
+    fn default() -> Self {
+    Self::new()
+    }
+}
+
 /// A waker struct that holds the task ID and a reference of the task queue 
 pub struct TaskWaker {
     task_id: TaskId,
@@ -86,7 +92,7 @@ pub struct TaskWaker {
 
 impl TaskWaker {
     /// Converts a task_id and a reference to the task queue from a task waker to a Waker
-    pub fn new(task_id: TaskId, task_queue: Arc<ArrayQueue<TaskId>>) -> Waker {
+    pub fn new_waker(task_id: TaskId, task_queue: Arc<ArrayQueue<TaskId>>) -> Waker {
         Waker::from(Arc::new(TaskWaker {
             task_id,
             task_queue,

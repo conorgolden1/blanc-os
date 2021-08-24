@@ -11,7 +11,7 @@ use core::{pin::Pin, task::{Poll, Context}};
 
 static mut PORT_64 : PortGeneric<u32, ReadWriteAccess> = Port::new(0x64);
 static mut PORT_60 : PortGeneric<u32, ReadWriteAccess> = Port::new(0x60);
-static mut state : AtomicU8 = AtomicU8::new(0);
+static mut STATE : AtomicU8 = AtomicU8::new(0);
 static WAKER: AtomicWaker = AtomicWaker::new();
 static mut MOUSEPACKET : [u8; 3] = [0; 3];
 
@@ -20,23 +20,23 @@ static SCANCODE_QUEUE: OnceCell<ArrayQueue<[u8; 3]>> = OnceCell::uninit();
 /// # Safety
 pub unsafe fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get()  {
-        match state.fetch_add(1, Ordering::Relaxed) {
+        match STATE.fetch_add(1, Ordering::Relaxed) {
             0 =>  {
                 if scancode & 0b00001000 == 0b00001000 {
                     MOUSEPACKET[0] = scancode;
                 } else {
-                    state.swap(0, Ordering::Relaxed);
+                    STATE.swap(0, Ordering::Relaxed);
                 }
             }, 
             1 => MOUSEPACKET[1] = scancode,
             2 => {
                 MOUSEPACKET[2] = scancode;
-                if let Err(_) = queue.push(MOUSEPACKET.clone())  {
+                if queue.push(MOUSEPACKET).is_err()  {
                     println!("WARNING: scancode queue full; dropping mouse input");   
                 } else {
                     WAKER.wake();
                 }
-                state.swap(0, Ordering::Relaxed);
+                STATE.swap(0, Ordering::Relaxed);
             }
             _ => unreachable!("Mouse state should not exceed 2 in current impl")
     
@@ -60,7 +60,11 @@ impl ScancodeStream {
     }
 }
 
-
+impl Default for ScancodeStream {
+    fn default() -> Self {
+    Self::new()
+    }
+}
 
 impl Stream for ScancodeStream {
     type Item = [u8; 3];
@@ -71,7 +75,7 @@ impl Stream for ScancodeStream {
          if let Ok(scancode) = queue.pop() {
              return Poll::Ready(Some(scancode));
          }
-         WAKER.register(&context.waker());
+         WAKER.register(context.waker());
          match queue.pop() {
              Ok(scancode) => {
                  WAKER.take();
@@ -89,30 +93,30 @@ pub async fn print_mouse() {
     while let Some(scancode) = scancodes.next().await  {
         // println!("{}", WRITER.get().unwrap().lock().info.horizontal_resolution);
         // println!("{}", WRITER.get().unwrap().lock().info.vertical_resolution);
-        let mut code  = scancode;
+        
         
         let flags = MousePacketFlags::from_bits_truncate(scancode[0]);
         
         if !flags.contains(MousePacketFlags::XSIGN) {
-            mouse_point.x += code[1] as i16;
+            mouse_point.x += scancode[1] as i16;
             if flags.contains(MousePacketFlags::XOVERFLOW) {
                 mouse_point.x += 255;
             }
         } else {
 
-            mouse_point.x -= 256 - code[1] as i16;
+            mouse_point.x -= 256 - scancode[1] as i16;
             if flags.contains(MousePacketFlags::XOVERFLOW) {
                 mouse_point.x -= 255;
             }
         }
 
         if !flags.contains(MousePacketFlags::YSIGN) {
-            mouse_point.y -= code[2] as i16;
+            mouse_point.y -= scancode[2] as i16;
             if flags.contains(MousePacketFlags::YOVERFLOW) {
                 mouse_point.y -= 255;
             }
         } else {
-            mouse_point.y += 256 - code[2] as i16;
+            mouse_point.y += 256 - scancode[2] as i16;
             if flags.contains(MousePacketFlags::YOVERFLOW) {
                 mouse_point.y += 255;
             }
@@ -237,6 +241,6 @@ fn mouse_write(value : u8)  {
 
 fn mouse_read() -> u32 {
     mouse_wait_input();
-    let value = unsafe { PORT_60.read() } ;
-    value
+    unsafe { PORT_60.read() } 
+    
 }
