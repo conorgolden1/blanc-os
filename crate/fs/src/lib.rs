@@ -4,3 +4,4 @@
 
 pub mod inode;
 pub mod ramdisk;
+pub mod file_table;

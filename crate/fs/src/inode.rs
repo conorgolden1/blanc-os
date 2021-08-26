@@ -3,11 +3,11 @@ extern crate alloc;
 
 
 
-use core::{lazy::OnceCell, ops::DerefMut};
 
-use alloc::{sync::Weak, string::String, sync::Arc, vec::Vec};
+
+use alloc::{sync::Weak, sync::Arc, vec::Vec};
 use bitflags::bitflags;
-use spin::{Mutex, Once};
+use spin::{Mutex};
 
 
 pub trait INode: Send + Sync {
@@ -15,16 +15,16 @@ pub trait INode: Send + Sync {
     fn metadata(&self) -> Result<Metadata, FileSystemError>;
 
     /// Read bytes into file
-    fn read(&self, size : u32, buffer : &mut [u8]);
+    fn read(&self,  count : usize, buffer : &mut [u8]);
 
     /// Read bytes into file at an offset
-    fn pread(&self, offset : u32, size : u32, buffer : &mut [u8]);
+    fn pread(&self, offset : usize, count : usize, buffer : &mut [u8]);
 
     /// Write bytes into file
-    fn write(&self, size : u32, buffer : &[u8]);
+    fn write(&self, count : usize, buffer : &[u8]);
 
     /// Write bytes into file at an offset
-    fn pwrite(&self, offset : u32, size : u32, buffer : &[u8]);
+    fn pwrite(&self, offset : usize, count : usize, buffer : &[u8]);
 
     /// Open a file returning the file descriptor
     fn open(&self, name : &str, o_flag : OFlags) -> Result<(), FileSystemError>;
@@ -36,7 +36,7 @@ pub trait INode: Send + Sync {
     fn mkdir(&self, name : &str) -> Result<(), FileSystemError>;
 
     /// Finds a directory in the filesystem
-    fn find_dir<'a>(&'a self, dir : Arc<&'a Directory<'a>>, name :&str) -> Result<Directory, FileSystemError>;
+    fn find_dir(&self, name :&str) -> Result<Arc<dyn INode>, FileSystemError>;
 
     /// Return the filesystem type that this inode belongs too
     fn filesystem(&self) -> Weak<dyn FileSystem>; 
@@ -83,48 +83,11 @@ impl Metadata {
     }
 }
 
-/// Structure representing the metadata that a Directory holds
-pub struct DirectoryData<'a> {
-    /// Name of the directory
-    name : String,
-    
-    /// Reference to the parent directory
-    parent : Option<Arc<&'a Directory<'a>>>,
-
-    /// Reference to the inode for this directory
-    inode : Arc<dyn INode>,
-}
 
 
-pub struct Directory<'a> {
-    pub data : Mutex<DirectoryData<'a>>,
-    pub filesystem: Once<Weak<dyn FileSystem>>,
-}
 
-impl<'a> Directory<'a> {
-    /// Create a new directory, if no parent directory is provided then the directory is assumed to be the
-    /// root node
-    pub fn new(parent: Option<Arc<&'a Directory<'a>>>, inode : Arc<dyn INode>, name : String) -> Directory<'a> {
-        let data = 
-            Mutex::new(
-                DirectoryData {
-                    name,
-                    parent,
-                    inode : inode.clone()
-                }
-        );
-        let x: Once<Weak<dyn FileSystem>> = Once::new();
-        x.call_once(|| inode.filesystem());
-        Self {
-            data,
-            filesystem : x
-        }
-    }
-    pub fn inode(&self) -> Arc<dyn INode> {
-        self.data.lock().inode.clone()
-    }
 
-}
+
 
 
 
