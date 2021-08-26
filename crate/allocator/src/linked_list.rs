@@ -2,6 +2,7 @@
 use super::align_up;
 use core::mem;
 
+// TODO DOCUMENT EVERYTHING!
 struct ListNode {
     size: usize,
     next: Option<&'static mut ListNode>,

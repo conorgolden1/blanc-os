@@ -9,6 +9,7 @@ pub fn init_idt() {
 }
 
 use coop::keyboard;
+use coop::mouse;
 use lazy_static::lazy_static;
 use x86_64::structures::idt::InterruptDescriptorTable;
 use printer::{print, println};
@@ -24,6 +25,7 @@ lazy_static! {
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         idt[InterruptIndex::PrimATA.as_usize()].set_handler_fn(ata_interrupt_handler);
+        idt[InterruptIndex::Mouse.as_usize()].set_handler_fn(mouse_interrupt_handler);
         idt.page_fault.set_handler_fn(page_fault_handler);
         idt.divide_error.set_handler_fn(divide_error_handler);
         idt.general_protection_fault.set_handler_fn(general_protection_handler);
@@ -69,6 +71,19 @@ extern "x86-interrupt" fn ata_interrupt_handler(_stack_frame: InterruptStackFram
     }
 }
 
+
+///Reads the key code from 0x60 port and adds that to the keyboard task handler
+extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    use x86_64::instructions::port::Port;
+    let mut port = Port::new(0x60);
+    let scancode: u8 = unsafe{ port.read() };
+    unsafe { mouse::add_scancode(scancode) };
+    
+
+    unsafe {
+        PICS.lock().notify_end_of_interrupt(InterruptIndex::Mouse.as_u8());
+    }
+}
 
 ///Reads the key code from 0x60 port and adds that to the keyboard task handler
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
@@ -155,7 +170,7 @@ pub enum InterruptIndex {
 impl InterruptIndex {
 
     /// u8 representation from the PIC_1_OFFSET
-    fn as_u8(self) -> u8 {
+    pub fn as_u8(self) -> u8 {
         self as u8
     }
     

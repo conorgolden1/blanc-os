@@ -21,7 +21,7 @@ const LINE_SPACING: usize = 0;
 /// Allows logging text to a pixel-based framebuffer.
 pub struct Writer {
     framebuffer: &'static mut [u8],
-    info: FrameBufferInfo,
+    pub info: FrameBufferInfo,
     x_pos: usize,
     y_pos: usize,
 }
@@ -97,7 +97,7 @@ impl Writer {
         self.x_pos += 8;
     }
 
-    fn write_pixel(&mut self, x: usize, y: usize, intensity: u8) {
+    pub fn write_pixel(&mut self, x: usize, y: usize, intensity: u8) {
         let pixel_offset = y * self.info.stride + x;
         let color = match self.info.pixel_format {
             PixelFormat::RGB => [intensity, intensity, intensity / 2, 0],

@@ -8,6 +8,7 @@ edition = "2018"
 [workspace]
 members = [
     "simple_boot",
+    "crate/*"
 ]
 
 [dependencies]
@@ -39,14 +40,18 @@ stack = { path = "crate/stack" }
 # Task structures
 task = { path = "crate/task" }
 
+# Cooperative Multitasking
+coop = { path = "crate/coop" }
+
+# Virtual File System
+fs = { path = "crate/fs" }
 
 [dependencies.bootloader]
 version = "0.10.7"
 
 
 [package.metadata.bootloader]
-map-page-table-recursively = true
-kernel-stack-address = "0xFFFF_F000_0001_9000"
+map-physical-memory = true
 
 [profile.dev]
 panic = "abort"

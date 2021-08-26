@@ -2,7 +2,7 @@
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 
-pub const HEAP_START: usize = 0xFFFF_F000_0000_0000;
+pub const HEAP_START: usize = 0x0000_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
 
 extern crate alloc;
@@ -10,7 +10,7 @@ extern crate alloc;
 pub mod linked_list;
 
 use linked_list::LinkedListAllocator;
-use memory::frame::FRAME_ALLOCATOR;
+use memory::phys::FRAME_ALLOCATOR;
 
 #[global_allocator]
 static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
@@ -30,10 +30,11 @@ pub fn init_heap(page_table: &mut impl Mapper<Size4KiB>) -> Result<(), MapToErro
     };
 
     for page in page_range {
-        let frame = FRAME_ALLOCATOR.wait().unwrap().lock().allocate_frame().ok_or(MapToError::FrameAllocationFailed)?;
+        let frame = FRAME_ALLOCATOR.wait().unwrap().allocate_frame().ok_or(MapToError::FrameAllocationFailed)?;
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+        
         unsafe {
-            page_table.map_to(page, frame, flags, &mut FRAME_ALLOCATOR.wait().unwrap().lock())?.flush()
+            page_table.map_to(page, frame, flags,FRAME_ALLOCATOR.wait().as_mut().unwrap())?.flush()
         };
     }
 
