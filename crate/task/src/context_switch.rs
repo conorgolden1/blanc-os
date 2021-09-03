@@ -1,10 +1,15 @@
+use x86_64::{
+    structures::paging::{PageTable, PhysFrame},
+    VirtAddr,
+};
+
 /// Switch the context between two tasks
 ///
-/// 
-/// 
+///
+///
 /// # Safety
 /// The user must disable interrupts before switching.
-/// Switching stack pointers to invalid places can cause undefined behavior 
+/// Switching stack pointers to invalid places can cause undefined behavior
 #[naked]
 pub unsafe extern "C" fn context_switch(_prev_sp: *mut usize, _next_sp: usize) {
     asm!(
@@ -45,5 +50,21 @@ pub unsafe extern "C" fn context_switch(_prev_sp: *mut usize, _next_sp: usize) {
         "#,
         options(noreturn)
     );
+}
 
+/// Performs the actual context switch.
+pub unsafe fn new_context_switch(
+    page_table: PhysFrame,
+    stack_top: VirtAddr,
+    entry_point: VirtAddr,
+) -> ! {
+    unsafe {
+        asm!(
+            "mov cr3, {}; mov rsp, {}; push 0; jmp {}",
+            in(reg) page_table.start_address().as_u64(),
+            in(reg) stack_top.as_u64(),
+            in(reg) entry_point.as_u64(),
+        );
+    }
+    unreachable!();
 }

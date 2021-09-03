@@ -26,7 +26,6 @@ pub struct LinkedListAllocator {
     head: ListNode,
 }
 
-
 impl LinkedListAllocator {
     pub const fn new() -> Self {
         Self {
@@ -48,7 +47,6 @@ impl LinkedListAllocator {
         self.head.next = Some(&mut *node_ptr)
     }
 
-
     fn find_region(&mut self, size: usize, align: usize) -> Option<(&'static mut ListNode, usize)> {
         let mut current = &mut self.head;
         while let Some(ref mut region) = current.next {
@@ -61,9 +59,8 @@ impl LinkedListAllocator {
                 current = current.next.as_mut().unwrap();
             }
         }
-            None
+        None
     }
-
 
     fn alloc_from_region(region: &ListNode, size: usize, align: usize) -> Result<usize, ()> {
         let alloc_start = align_up(region.start_addr(), align);
@@ -78,11 +75,10 @@ impl LinkedListAllocator {
             return Err(());
         }
 
-    
         Ok(alloc_start)
     }
-    
-    fn size_align(layout: Layout) -> (usize, usize) {
+
+    pub fn size_align(layout: Layout) -> (usize, usize) {
         let layout = layout
             .align_to(mem::align_of::<ListNode>())
             .expect("adjusting alignment failed")

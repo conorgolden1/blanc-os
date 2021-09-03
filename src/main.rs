@@ -5,6 +5,7 @@
 extern crate alloc;
 
 use alloc::vec;
+use alloc::vec::Vec;
 use bootloader::entry_point;
 //  Macro for pointing to where the entry point function is
 entry_point!(main);
@@ -16,68 +17,91 @@ entry_point!(main);
 // STACK SIZE   : 80 * 1024
 
 use bootloader::BootInfo;
-use coop::Task;
 use coop::executor::Executor;
 use coop::keyboard;
 use coop::mouse;
-use fs::inode::INode;
-use fs::inode::OFlags;
-use fs::ramdisk;
-use fs::ramdisk::RAMFS;
-use fs::ramdisk::print_filesystem;
-use gdt::GDT;
-use interrupts::InterruptIndex;
-use interrupts::PICS;
-use memory::phys::FRAME_ALLOCATOR;
-use memory::phys::PhysFrameAllocator;
-use memory::init;
-use memory::virt;
-use printer::{print, println};
-use serial::serial_println;
+use coop::Task;
 
+use memory::active_level_4_table;
+use memory::allocator;
+use memory::init;
+use memory::phys::PhysFrameAllocator;
+
+use printer::{print, println};
+use task::context_switch::new_context_switch;
+use task::elf::Pml4Creator;
 use x86_64::PhysAddr;
-use x86_64::VirtAddr;
-use x86_64::structures::paging::FrameAllocator;
-use x86_64::structures::paging::FrameDeallocator;
-use x86_64::structures::paging::Translate;
+use x86_64::registers::control::Cr3;
+use x86_64::structures::paging::PageTable;
+
+
+
+
+#[rustfmt::skip]
+static USERLAND_SHELL: &[u8] = include_bytes!("shell");
 
 /// The kernels main after being handed off from the bootloader
 ///
 /// This area is where the execution of the kernel begins
 fn main(boot_info: &'static mut BootInfo) -> ! {
-
-
-    let frame_buffer_info  = boot_info.framebuffer.as_ref().unwrap().info();
-    if let Some(frame_buffer) =  boot_info.framebuffer.as_mut() {
+    let frame_buffer_info = boot_info.framebuffer.as_ref().unwrap().info();
+    if let Some(frame_buffer) = boot_info.framebuffer.as_mut() {
         blanc_os::init_logger(frame_buffer.buffer_mut(), frame_buffer_info);
     }
-    
+
     blanc_os::init();
 
-    let mut page_table = unsafe { init(boot_info.physical_memory_offset) };
-    PhysFrameAllocator::init(&boot_info.memory_regions, &mut page_table);
+    unsafe { init(boot_info.recursive_index) };
     
-    allocator::init_heap(&mut page_table).expect("Heap did not properly map");
+    PhysFrameAllocator::init(&boot_info.memory_regions);
+    
+    allocator::init_heap().expect("Heap did not properly map");
 
-    let mut x = virt::address_space::AddressSpace::new().unwrap();
 
-    RAMFS.root_inode.mkdir("foo.txt").unwrap();
-    print_filesystem();
+    // for (i, entry) in KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().iter().enumerate() {
+    //     if !entry.is_unused() {
+    //         println!("{} {:#?}", i , entry);
+    //     }
+    // }
 
+
+
+
+    let shell_proc = task::binary("shell", USERLAND_SHELL, task::task::Ring::Ring3);
+
+
+
+    // for (i, entry)  in shell_proc.tables.pml4.iter().enumerate() {
+    //     if !entry.is_unused() {
+    //         println!("{}, {:#?}", i,  entry);
+    //     }
+    // }
+  
+    // for (i, entry) in shell_proc.tables.pml4.iter().enumerate() {
+    //     if !entry.is_unused() {
+    //         println!("{} {:#?}", i, entry)
+    //     }
+    // }
+    // x86_64::instructions::interrupts::disable();
+    unsafe {
+        new_context_switch(shell_proc.pml4,shell_proc.stack_frame_top_addr(), shell_proc.entry);
+    }
+    
     let mut executor = Executor::new();
 
     executor.spawn(Task::new(keyboard::print_keypresses()));
     executor.spawn(Task::new(mouse::print_mouse()));
     executor.run();
-    
 }
 
 
-use core::{panic::PanicInfo};
+
+use core::panic::PanicInfo;
+
 /// Operating System panic handler for stopping
 /// execution in the face of an error
 #[panic_handler]
-fn panic(_info : &PanicInfo) -> ! {
+fn panic(_info: &PanicInfo) -> ! {
     println!("{}", _info);
     blanc_os::halt_loop()
 }
@@ -92,3 +116,13 @@ fn panic(_info : &PanicInfo) -> ! {
 
 // // TODO ADD INTO TEST
 // assert_ne!(FRAME_ALLOCATOR.wait().unwrap().allocate_frame(), FRAME_ALLOCATOR.wait().unwrap().allocate_frame());
+    // let mut x = aside_virt::address_space::AddressSpace::new().unwrap();
+
+    // RAMFS.root_inode.mkdir("foo.txt").unwrap();
+    // print_filesystem();
+    // let mut task = task::Task::new_idle();
+    // let mut tmm = TaskMemoryMap::new();
+
+    // let shell_elf = ElfFile::new(memory::USERLAND_SHELL).unwrap();
+    // shell_elf.tmm.load_bin(&shell_elf);
+    // task.exec(tmm, &shell_elf);

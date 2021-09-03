@@ -19,12 +19,10 @@ pub fn halt_loop() -> ! {
 }
 
 use bootloader::boot_info::FrameBufferInfo;
-use printer::{WRITER, Writer};
+use printer::{Writer, WRITER};
 use spin::Mutex;
 
 pub fn init_logger(framebuffer: &'static mut [u8], info: FrameBufferInfo) {
     let mutex_writer = Mutex::new(Writer::new(framebuffer, info));
-    WRITER.init_once(|| {
-        mutex_writer
-    });
+    WRITER.init_once(|| mutex_writer);
 }

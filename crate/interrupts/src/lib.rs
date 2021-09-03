@@ -16,12 +16,23 @@ use printer::{print, println};
 
 lazy_static! {
     ///Static Interrupt Descriptor Table with all of the registered interrupt types and their handler functions
-    static ref IDT: InterruptDescriptorTable = {
+    pub static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         unsafe {
             idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(gdt::DOUBLE_FAULT_INDEX);
         }
+        idt.bound_range_exceeded.set_handler_fn(bound_range_handler);
+        idt.segment_not_present.set_handler_fn(segment_not_present_handler);
+        idt.alignment_check.set_handler_fn(alignment_handler);
+        idt.invalid_opcode.set_handler_fn(invalid_op_handler);
+        idt.invalid_tss.set_handler_fn(invalid_tss_handler);
+        idt.stack_segment_fault.set_handler_fn(stack_segment_handler);
+        idt.security_exception.set_handler_fn(security_exception_handler);
+        for i in PIC_1_OFFSET..(PIC_2_OFFSET + 8) {
+            idt[i as usize].set_handler_fn(tmp_handler);
+        }
+
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         idt[InterruptIndex::PrimATA.as_usize()].set_handler_fn(ata_interrupt_handler);
@@ -29,6 +40,8 @@ lazy_static! {
         idt.page_fault.set_handler_fn(page_fault_handler);
         idt.divide_error.set_handler_fn(divide_error_handler);
         idt.general_protection_fault.set_handler_fn(general_protection_handler);
+        idt.virtualization.set_handler_fn(virtualization_handler);
+    
 
         idt
     };
@@ -60,7 +73,41 @@ extern "x86-interrupt" fn divide_error_handler(stack_frame: InterruptStackFrame)
     panic!("EXCEPTION: DIVIDE ERROR\n{:#?}", stack_frame);
 }
 
+extern "x86-interrupt" fn security_exception_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!("EXCEPTION: SECURITY EXCEPTION ERROR\n{:#?}\nERROR CODE : {:#?}", stack_frame, SelectorErrorCode::new(error_code));
+}
 
+extern "x86-interrupt" fn stack_segment_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!("EXCEPTION: STACK SEGMENT FAULT\n{:#?}\nERROR CODE : {:#?}", stack_frame, SelectorErrorCode::new(error_code));
+}
+
+extern "x86-interrupt" fn invalid_tss_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!("EXCEPTION: INVALID TSS\n{:#?}\nERROR CODE : {:#?}", stack_frame, SelectorErrorCode::new(error_code));
+}
+
+extern "x86-interrupt" fn invalid_op_handler(stack_frame: InterruptStackFrame) {
+    panic!("EXCEPTION: INVALID OPCODE\n{:#?}\n", stack_frame);
+}
+
+extern "x86-interrupt" fn alignment_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!("EXCEPTION: OUT OF ALIGNMENT\n{:#?}\nERROR CODE : {:#?}", stack_frame, SelectorErrorCode::new(error_code));
+}
+
+extern "x86-interrupt" fn segment_not_present_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!("EXCEPTION: SEGMENT NOT PRESENT\n{:#?}\nERROR CODE : {:#?}", stack_frame, SelectorErrorCode::new(error_code));
+}
+
+extern "x86-interrupt" fn bound_range_handler(stack_frame: InterruptStackFrame) {
+    panic!("EXCEPTION: BOUND RANGE EXCEEDED\n{:#?}\n", stack_frame);
+}
+
+extern "x86-interrupt" fn virtualization_handler(stack_frame: InterruptStackFrame) {
+    panic!("EXCEPTION: VIRT EXCEPTION\n{:#?}\n", stack_frame);
+}
+
+extern "x86-interrupt" fn tmp_handler(stack_frame: InterruptStackFrame) {
+    panic!("EXCEPTION: TEMP EXCEPTION\n{:#?}\n", stack_frame);
+}
 
 
 ///Doesnt do anything at the moment
@@ -98,20 +145,11 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
 }
 
 use x86_64::structures::idt::PageFaultErrorCode;
-
+use x86_64::registers::control::Cr2;
 
 ///Page fault handler prints out the respective errors and stack frame and halts cpu execution
 extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
-    use x86_64::registers::control::Cr2;
-
-
-    let address = Cr2::read();
-    let reason = PageFaultErrorCode::from_bits_truncate(_stack_frame.code_segment);
-
-    // if address.as_u64() < 0x8000_0000_0000 {
-    //     let signal 
-    // } 
-
+    
     println!("EXCEPTION: PAGE FAULT");
     println!("Accessed Address: {:?}", Cr2::read());
     println!("Error Code: {:?}", _error_code);

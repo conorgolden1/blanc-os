@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "accessor"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd8b2abd55bf1f9cffbf00fd594566c51a9d31402553284920c1309ca8351086"
+
+[[package]]
 name = "ahash"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11,15 +17,6 @@ dependencies = [
  "getrandom",
  "once_cell",
  "version_check",
-]
-
-[[package]]
-name = "allocator"
-version = "0.1.0"
-dependencies = [
- "memory",
- "spin 0.5.2",
- "x86_64",
 ]
 
 [[package]]
@@ -44,19 +41,19 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 name = "blanc_os"
 version = "0.1.0"
 dependencies = [
- "allocator",
  "bootloader",
  "coop",
- "fs",
+ "elfloader",
  "gdt",
  "interrupts",
  "memory",
+ "os_units",
  "printer",
  "serial",
  "spin 0.5.2",
- "stack",
  "task",
  "x86_64",
+ "xmas-elf 0.6.2",
 ]
 
 [[package]]
@@ -138,6 +135,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "elfloader"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a249d6a9d50f3bf5a3cb7bfd75e84989cad89c6c77b5996c8b084e844146ff04"
+dependencies = [
+ "bitflags",
+ "log",
+ "xmas-elf 0.8.0",
+]
+
+[[package]]
 name = "font8x8"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -183,8 +191,11 @@ dependencies = [
 name = "gdt"
 version = "0.1.0"
 dependencies = [
+ "conquer-once",
  "lazy_static",
+ "os_units",
  "printer",
+ "spinning_top",
  "x86_64",
 ]
 
@@ -270,6 +281,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "log"
+version = "0.4.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
+dependencies = [
+ "cfg-if 1.0.0",
+]
+
+[[package]]
 name = "maybe-uninit"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -288,8 +308,11 @@ dependencies = [
 name = "memory"
 version = "0.1.0"
 dependencies = [
+ "accessor",
  "bitflags",
  "bootloader",
+ "elfloader",
+ "os_units",
  "printer",
  "spin 0.5.2",
  "x86_64",
@@ -300,6 +323,15 @@ name = "once_cell"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
+
+[[package]]
+name = "os_units"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76f5d56adacad84b1031b481722ddd4ec261ba0b5c420d45855248918b21dff3"
+dependencies = [
+ "x86_64",
+]
 
 [[package]]
 name = "pc-keyboard"
@@ -378,22 +410,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "stack"
-version = "0.1.0"
+name = "spinning_top"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75adad84ee84b521fb2cca2d4fd0f1dab1d8d026bda3c5bea4ca63b5f9f9293c"
 dependencies = [
- "x86_64",
+ "lock_api",
 ]
 
 [[package]]
 name = "task"
 version = "0.1.0"
 dependencies = [
+ "bootloader",
+ "fs",
+ "gdt",
  "hashbrown",
  "intrusive-collections",
  "memory",
+ "os_units",
+ "printer",
  "spin 0.5.2",
  "x86_64",
- "xmas-elf",
+ "xmas-elf 0.8.0",
 ]
 
 [[package]]
@@ -433,6 +472,15 @@ dependencies = [
  "bit_field",
  "bitflags",
  "volatile",
+]
+
+[[package]]
+name = "xmas-elf"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22678df5df766e8d1e5d609da69f0c3132d794edf6ab5e75e7abcd2270d4cf58"
+dependencies = [
+ "zero",
 ]
 
 [[package]]
