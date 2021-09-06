@@ -5,12 +5,11 @@
 #![test_runner(test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+#[allow(unused_imports)]
 use blanc_os::test_runner;
 
 extern crate alloc;
 
-use alloc::vec;
-use alloc::vec::Vec;
 use bootloader::entry_point;
 
 //  Macro for pointing to where the entry point function is
@@ -28,7 +27,7 @@ use coop::keyboard;
 use coop::mouse;
 use coop::Task;
 
-use gdt::TSS;
+
 use memory::KERNEL_PAGE_TABLE;
 use memory::active_level_4_table;
 
@@ -38,21 +37,19 @@ use memory::init;
 use memory::phys::PhysFrameAllocator;
 
 use printer::{print, println};
-use serial::serial_print;
-use serial::serial_println;
-use task::context_switch::new_context_switch;
-use task::elf;
-use task::elf::Pml4Creator;
-use x86_64::PhysAddr;
+
+// use task::context_switch::new_context_switch;
+// use task::elf;
+// use task::elf::Pml4Creator;
+// use x86_64::PhysAddr;
 use x86_64::registers::control::Cr3;
-use x86_64::structures::paging::FrameAllocator;
-use x86_64::structures::paging::PageTable;
+
 
 
 
 
 #[rustfmt::skip]
-static USERLAND_SHELL: &[u8] = include_bytes!("../target/x86_64-rust-os/debug/shell");
+static USERLAND_SHELL: &[u8] = include_bytes!("../applications/shell/target/x86_64-rust-os/debug/shell");
 
 
 
@@ -92,7 +89,7 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     let x = xmas_elf::ElfFile::new(USERLAND_SHELL).unwrap();
     println!("RAW ENTRY POINT {:#?}", x.header.pt2.entry_point());
 
-    let shell_proc = task::binary("shell", USERLAND_SHELL, task::task::Ring::Ring3);
+    let _shell_proc = task::binary("shell", USERLAND_SHELL, task::task::Ring::Ring3);
     
     // for (i, (entry_x, entry_y)) in shell_proc.pml4.iter().zip(KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().iter()).enumerate(){
     //     if !entry_x.is_unused() {
@@ -103,11 +100,11 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     
   
     
-    x86_64::instructions::interrupts::disable();
-    println!("SWITCHING TO {}!", shell_proc.name);
-    unsafe {
-        new_context_switch(shell_proc);
-    }
+    // x86_64::instructions::interrupts::disable();
+    // println!("SWITCHING TO {}!", shell_proc.name);
+    // unsafe {
+    //     new_context_switch(shell_proc);
+    // }
     
     let mut executor = Executor::new();
 
@@ -174,4 +171,24 @@ fn test_println() {
     println!()
 }
 
+#[test_case]
+fn test_box_heap_alloc() {
+    use alloc::boxed::Box;
+
+    drop(Box::new([0u64; 100]));
+}
+
+
+
+
+#[test_case]
+fn test_vec_heap_alloc() {
+    use alloc::vec::Vec;
+
+    let mut vec: Vec<u64> = Vec::new();
+    for i in 0..50 {
+        vec.push(i);
+    }
+    drop(vec)
+}
 

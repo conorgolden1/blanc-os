@@ -1,11 +1,12 @@
 #![no_std]
 #![reexport_test_harness_main = "test_main"]
 #![test_runner(crate::test_runner)]
-
 #![cfg_attr(test, no_main)]
 #![feature(custom_test_frameworks)]
-#![feature(alloc_error_handler)]
 
+#![feature(alloc_error_handler)]
+#[allow(unused_imports)]
+use memory::allocator::{Locked, linked_list::LinkedListAllocator};
 
 
 
@@ -28,7 +29,8 @@ pub fn halt_loop() -> ! {
 }
 
 use bootloader::boot_info::FrameBufferInfo;
-use memory::allocator::{Locked, linked_list::LinkedListAllocator};
+
+
 use printer::{Writer, WRITER};
 use serial::{serial_print, serial_println};
 use spin::Mutex;
