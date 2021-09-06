@@ -1,22 +1,20 @@
-use core::{
-    convert::TryInto,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use core::{convert::TryInto, ops::Index, sync::atomic::{AtomicUsize, Ordering}};
 
 
 use crate::{elf::Pml4Creator, stack_frame::StackFrame};
-use memory::kpbox::KpBox;
+use memory::{KERNEL_PAGE_TABLE, RECURSIVE_INDEX, active_level_4_table, kpbox::KpBox, swap_to_kernel_table};
+use printer::{println, print};
 use x86_64::{VirtAddr, registers::control::Cr3, structures::paging::{PageSize, PageTable, PageTableIndex, PhysFrame, RecursivePageTable, Size4KiB}};
 
 extern crate alloc;
 pub struct Task {
     task_id: TaskID,
     pub entry: VirtAddr,
-    pub pml4: PhysFrame,
+    pub pml4: KpBox<PageTable>,
     state: TaskState,
     stack: KpBox<[u8]>,
     stack_frame: KpBox<StackFrame>,
-    name: &'static str,
+    pub name: &'static str,
     pub ring: Ring,
 }
 
@@ -24,13 +22,19 @@ impl Task {
     const STACK_SIZE: u64 = Size4KiB::SIZE;
 
     pub fn binary(name: &'static str, bin: &[u8], ring: Ring) -> Task {
-        let mut page_table = Pml4Creator::default().create();
-
-        unsafe {Cr3::write(PhysFrame::containing_address(page_table.phys_addr()), Cr3::read().1)};
         
-        let mut x  = unsafe {RecursivePageTable::new_unchecked(&mut page_table, PageTableIndex::new(511))};
+        let mut page_table = Pml4Creator::default().create();
+        println!("Writing {} Page_Table", name);
+        println!("BEFORE CR3 Write {:#?}", Cr3::read().0);
+        unsafe {Cr3::write(PhysFrame::containing_address(page_table.index(511).addr()), Cr3::read().1)};
+        println!("AFTER CR3 Write {:#?}", Cr3::read().0);
+        *RECURSIVE_INDEX.wait().unwrap().lock() = 511;
+        x86_64::instructions::tlb::flush_all();
+        
+        
+        let mut pml4  = RecursivePageTable::new(active_level_4_table()).unwrap();
     
-        let mut shell_proc = crate::elf::Loader::new(bin, &mut x).unwrap();
+        let mut shell_proc = crate::elf::Loader::new(bin, &mut pml4).unwrap();
         shell_proc.load_segments().unwrap();
         
         let entry = shell_proc.entry_point();
@@ -40,11 +44,12 @@ impl Task {
             Ring::Ring0 => StackFrame::kernel(entry, stack_bottom),
             Ring::Ring3 => StackFrame::user(entry, stack_bottom),
         });
+        
+        println!("Mapping {} stack", name);
         shell_proc.map_page_box(&stack);
         shell_proc.map_page_box(&stack_frame);
 
-
-        let pml4: PhysFrame = shell_proc.get_table().level_4_table()[0].frame().unwrap();
+        swap_to_kernel_table();
 
         Self {
             task_id: TaskID::allocate(),
@@ -54,7 +59,7 @@ impl Task {
             stack,
             ring,
             name,
-            pml4,
+            pml4 : page_table,
         }
     }
 

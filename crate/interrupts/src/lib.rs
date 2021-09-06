@@ -149,16 +149,18 @@ use x86_64::registers::control::Cr2;
 
 ///Page fault handler prints out the respective errors and stack frame and halts cpu execution
 extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
-    
+    loop {
+        x86_64::instructions::hlt();
+    }
     println!("EXCEPTION: PAGE FAULT");
     println!("Accessed Address: {:?}", Cr2::read());
     println!("Error Code: {:?}", _error_code);
     println!("{:#?}", _stack_frame);
 
-    
-    loop {
-        x86_64::instructions::hlt();
-    }
+    // unsafe {
+    //     PICS.lock().notify_end_of_interrupt(0xE);
+    // }
+   
 }
 
 

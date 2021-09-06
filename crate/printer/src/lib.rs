@@ -45,10 +45,6 @@ impl Writer {
         self.carriage_return()
     }
 
-    fn add_vspace(&mut self, space: usize) {
-        self.y_pos += space;
-    }
-
     fn carriage_return(&mut self) {
         self.x_pos = 0;
     }
@@ -114,6 +110,7 @@ impl Writer {
 }
 
 /// Formats argument and calls the _print function
+#[allow(unreachable_code)]
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => ($crate::_print(format_args!($($arg)*)));    

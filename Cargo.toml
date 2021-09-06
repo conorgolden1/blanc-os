@@ -46,16 +46,16 @@ coop = { path = "crate/coop" }
 version = "0.10.7"
 
 
+
 [package.metadata.bootloader]
 map-page-table-recursively = true
 framebuffer-address = "0xFFFF_FF00_000A_0000"
 boot-info-address = "0xFFFF_FF00_002A_0000"
 kernel-stack-address = "0xFFFF_FF00_003A_0000"
-recursive-index = 511
+recursive-index = 508
                          
 [profile.dev]
-panic = "abort"
+panic = "unwind"
 
 [profile.release]
-panic = "abort"
-
+panic = "unwind"

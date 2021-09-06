@@ -1,9 +1,20 @@
 use std::{
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, ExitStatus},
+    time::Duration,
 };
 
 const RUN_ARGS: &[&str] = &["--no-reboot", "-s"];
+const TEST_ARGS: &[&str] = &[
+    "-device",
+    "isa-debug-exit,iobase=0xf4,iosize=0x04",
+    "-serial",
+    "stdio",
+    "-display",
+    "none",
+    "--no-reboot",
+];
+const TEST_TIMEOUT_SECS: u64 = 10;
 
 fn main() {
     let mut args = std::env::args().skip(1); // skip executable name
@@ -33,15 +44,31 @@ fn main() {
         .arg("-drive")
         .arg(format!("format=raw,file={}", bios.display()))
         .arg("-d")
-        .arg("int");
+        .arg("int")
+        .arg("-D")
+        .arg("./log.txt");
 
-        
-    run_cmd.args(RUN_ARGS);
+    let binary_kind = runner_utils::binary_kind(&kernel_binary_path);
+    if binary_kind.is_test() {
+        run_cmd.args(TEST_ARGS);
 
-    let exit_status = run_cmd.status().unwrap();
-    if !exit_status.success() {
-        std::process::exit(exit_status.code().unwrap_or(1));
+        let exit_status = run_test_command(run_cmd);
+        match exit_status.code() {
+            Some(33) => {} // success
+            other => panic!("Test failed (exit code: {:?})", other),
+        }
+    } else {
+        run_cmd.args(RUN_ARGS);
+
+        let exit_status = run_cmd.status().unwrap();
+        if !exit_status.success() {
+            std::process::exit(exit_status.code().unwrap_or(1));
+        }
     }
+}
+
+fn run_test_command(mut cmd: Command) -> ExitStatus {
+    runner_utils::run_with_timeout(&mut cmd, Duration::from_secs(TEST_TIMEOUT_SECS)).unwrap()
 }
 
 pub fn create_disk_images(kernel_binary_path: &Path) -> PathBuf {

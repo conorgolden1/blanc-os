@@ -19,7 +19,7 @@ use x86_64::{
 /// Search for any free address space that has a consistent number of pages in the
 /// active level 4 page table
 /// O(n)
-pub fn search_free_addr(num_pages: NumOfPages<Size4KiB>) -> Option<VirtAddr> {
+fn search_free_addr(num_pages: NumOfPages<Size4KiB>) -> Option<VirtAddr> {
     let mut cnt = 0;
     let mut start = None;
     for addr in (0..(*BYTES_AVAILABLE_RAM.wait().unwrap()) as usize)

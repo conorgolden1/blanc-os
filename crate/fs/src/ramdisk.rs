@@ -32,6 +32,7 @@ pub struct RamNode {
     contents : FileContents,
 }
 
+#[allow(clippy::from_over_into)]
 /// TODO? DOC?
 impl Into<Metadata> for RamNode {
     fn into(self) -> Metadata {
@@ -138,7 +139,7 @@ impl INode for LockedRamINode {
     /// Open a new file with a given name, if caller is not a directory 
     /// Err(EntryNotFound) is returned. Does not replace a file with the same
     /// name
-    fn open(&self, name : &str, o_flag : OFlags) -> Result<(), FileSystemError> {
+    fn open(&self, name : &str, _ : OFlags) -> Result<(), FileSystemError> {
         let mut this = self.0.write();
 
         if !(this.file_type != FileTypeFlags::DIRECTORY || this.file_type != FileTypeFlags::MOUNTPOINT) { 

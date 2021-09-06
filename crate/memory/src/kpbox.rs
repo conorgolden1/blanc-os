@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #![allow(clippy::type_repetition_in_bounds)]
-use crate::{active_level_4_table, virt::allocate_new};
+use crate::{active_level_4_table,virt::allocate_new};
 use core::{
     convert::TryFrom,
     fmt,

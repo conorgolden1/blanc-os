@@ -56,7 +56,7 @@ where
     pub(super) fn map_page_box(&mut self, b: &KpBox<impl ?Sized>) {
         use core::convert::TryFrom;
         for i in 0..b.bytes().as_num_of_pages::<Size4KiB>().as_usize() {
-            let off = 0x100F_0000 + Size4KiB::SIZE * u64::try_from(i).unwrap();
+            let off = Size4KiB::SIZE * u64::try_from(i).unwrap();
             let page = Page::from_start_address( b.virt_addr() + off).expect("Page is not aligned.");
             let frame = FRAME_ALLOCATOR.wait().unwrap().allocate_frame().unwrap();
             self.map(page, frame);
@@ -74,6 +74,7 @@ where
     }
 
     pub fn entry_point(&self) -> VirtAddr {
+       
         VirtAddr::new(self.elf_file.header.pt2.entry_point())
     }
 }
@@ -92,7 +93,7 @@ where
     ) -> Result<(), &'static str> {
         println!("Handling Load Segment, {:x?}", segment);
 
-        let virt_start_addr = VirtAddr::new(0x1000_0000 + segment.virtual_addr());
+        let virt_start_addr = VirtAddr::new(segment.offset() + segment.virtual_addr());
         let virt_end_addr = virt_start_addr + segment.mem_size();
         let virt_start_page = Page::<Size4KiB>::containing_address(virt_start_addr);
         let virt_end_page = Page::<Size4KiB>::containing_address(virt_end_addr);
@@ -152,6 +153,7 @@ impl Pml4Creator {
 
     fn enable_recursive_paging(&mut self) {
         let a = PhysFrame::containing_address(self.pml4.phys_addr());
+        println!("NEW PT : {:#?}", a);
         let f =
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
         self.pml4[511].set_frame(a, f);
@@ -160,7 +162,7 @@ impl Pml4Creator {
     fn map_kernel_area(&mut self) {
         self.pml4[0] = KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table()[0].clone();
         self.pml4[256] = KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table()[256].clone();
-        for i in 509..512 {
+        for i in 507..512 {
             self.pml4[i] = KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table()[i].clone();
         }
     }

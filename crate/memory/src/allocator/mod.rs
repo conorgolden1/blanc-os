@@ -1,3 +1,4 @@
+
 pub const HEAP_START: usize = 0xFFFF_FF00_004A_0000;
 
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
@@ -10,7 +11,7 @@ use crate::{phys::FRAME_ALLOCATOR, KERNEL_PAGE_TABLE};
 use linked_list::LinkedListAllocator;
 
 #[global_allocator]
-static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
+pub static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 use x86_64::{
     structures::paging::{
@@ -77,7 +78,4 @@ fn align_up(addr: usize, align: usize) -> usize {
     }
 }
 
-#[alloc_error_handler]
-fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
-    panic!("allocation error: {:?}", layout)
-}
+

@@ -3,7 +3,7 @@ extern crate alloc;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use alloc::{string::{String, ToString}, sync::Arc, vec::Vec};
+use alloc::{string::{ToString}, sync::Arc, vec::Vec};
 use spin::RwLock;
 use crate::inode::{FileSystemError, INode, OFlags};
 

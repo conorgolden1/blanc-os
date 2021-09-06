@@ -1,26 +1,18 @@
 //! OS Memory functionality and Structures
 #![no_std]
 #![feature(asm)]
-#![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 #![feature(lang_items)]
-use accessor::single::ReadWrite;
+#![feature(alloc_error_handler)]
+
 use bootloader::boot_info::Optional;
-use core::{
-    convert::{TryFrom, TryInto},
-    num::NonZeroUsize,
-};
-use os_units::Bytes;
-use phys::FRAME_ALLOCATOR;
+use printer::{println, print};
+use core::{ops::Index};
 use spin::{Mutex, Once};
 use virt::deallocate_pages;
-use x86_64::{
-    structures::paging::{
-        page_table::PageTableEntry, FrameDeallocator, Mapper, OffsetPageTable, Page, PageSize,
-        PageTable, PageTableFlags, RecursivePageTable, Size4KiB,
-    },
-    PhysAddr, VirtAddr,
-};
+use x86_64::{registers::control::Cr3, structures::paging::{
+        PageTable, RecursivePageTable,
+    }};
 
 extern crate alloc;
 
@@ -29,7 +21,7 @@ pub mod kpbox;
 pub mod phys;
 pub mod virt;
 
-pub static RECURSIVE_INDEX: Once<u16> = Once::new();
+pub static RECURSIVE_INDEX: Once<Mutex<u16>> = Once::new();
 
 pub static KERNEL_PAGE_TABLE: Once<Mutex<RecursivePageTable>> = Once::new();
 
@@ -40,7 +32,7 @@ pub static KERNEL_PAGE_TABLE: Once<Mutex<RecursivePageTable>> = Once::new();
 /// This function is unsafe because if the recursive index is not a valid index this
 /// can result in undefined behavior
 pub unsafe fn init(recursive_index: Optional<u16>) {
-    RECURSIVE_INDEX.call_once(|| recursive_index.into_option().unwrap());
+    RECURSIVE_INDEX.call_once(|| Mutex::new(recursive_index.into_option().unwrap()));
     let level_4_table = active_level_4_table();
     //mark_pages_unused();
     let kernel_page_table = RecursivePageTable::new(level_4_table).unwrap();
@@ -49,7 +41,7 @@ pub unsafe fn init(recursive_index: Optional<u16>) {
 
 ///Find the base address of the active level page table with the recursive index
 pub fn active_level_4_table() -> &'static mut PageTable {
-    let r = *RECURSIVE_INDEX.wait().unwrap() as u64;
+    let r = *RECURSIVE_INDEX.wait().unwrap().lock() as u64;
     let sign: u64;
 
     if r > 255 {
@@ -64,19 +56,20 @@ pub fn active_level_4_table() -> &'static mut PageTable {
     unsafe { &mut *level_4_table }
 }
 
-///TODO
-fn mark_pages_unused() {
-    let page_table = active_level_4_table();
 
-    for i in 4..510 {
-        page_table[i].set_unused();
-    }
+
+///TODO
+pub fn swap_to_kernel_table() {
+    println!("Swapping kernel table");
+    println!("RECURSIVE INDEX : {}", *RECURSIVE_INDEX.wait().unwrap().lock());
+
+
+    unsafe {Cr3::write( KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().index(508).frame().unwrap(), Cr3::read().1)};
+    x86_64::instructions::tlb::flush_all();
+
 }
 
-// /// # Safety
-// pub unsafe fn get_inner_table(pte : &PageTableEntry) -> &'static mut PageTable {
-//     let table_frame = pte.frame().unwrap();
-//     let virt_addr = VirtAddr::new(PHYSICAL_MEMORY_OFFSET.wait().unwrap().as_u64() + table_frame.start_address().as_u64());
-//     let page_table_ptr: *mut PageTable = virt_addr.as_mut_ptr();
-//     &mut *page_table_ptr
-// }
+#[alloc_error_handler]
+fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
+    panic!("allocation error: {:?}", layout)
+}
