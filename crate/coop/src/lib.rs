@@ -2,27 +2,29 @@
 #![no_std]
 extern crate alloc;
 
-use core::sync::atomic::{AtomicU64, Ordering};
-use core::{future::Future, pin::Pin, task::{Poll, Context}};
 use alloc::boxed::Box;
+use core::sync::atomic::{AtomicU64, Ordering};
+use core::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
-pub mod keyboard;
 pub mod executor;
+pub mod keyboard;
 pub mod mouse;
 
 /// Task ID struct that enforces unique ID's to be handed out to various tasks
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskId(u64);
 
-
 impl TaskId {
-    /// Create a new Task ID with a unique task value 
+    /// Create a new Task ID with a unique task value
     fn new() -> Self {
         static NEXT_ID: AtomicU64 = AtomicU64::new(0);
         TaskId(NEXT_ID.fetch_add(1, Ordering::Relaxed))
     }
 }
-
 
 /// Task struct that holds a unique ID and a future
 pub struct Task {
@@ -43,6 +45,3 @@ impl Task {
         self.future.as_mut().poll(context)
     }
 }
-
-
-

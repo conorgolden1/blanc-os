@@ -1,5 +1,5 @@
 //! This module is used for asynchronous executor to run asynchronous OS tasks
-use super::{TaskId, Task};
+use super::{Task, TaskId};
 use alloc::{collections::BTreeMap, sync::Arc, task::Wake};
 use core::task::{Context, Poll, Waker};
 use crossbeam_queue::ArrayQueue;
@@ -26,24 +26,27 @@ impl Executor {
         if self.tasks.insert(task.id, task).is_some() {
             panic!("task with same ID already in tasks");
         }
-        self.task_queue.push(task_id).expect("Async task queue full");
+        self.task_queue
+            .push(task_id)
+            .expect("Async task queue full");
     }
 
     /// Run any tasks that are in the queue
     fn run_ready_tasks(&mut self) {
-        let Self { 
+        let Self {
             tasks,
             task_queue,
-            waker_cache } = self;
-        
+            waker_cache,
+        } = self;
+
         while let Ok(task_id) = task_queue.pop() {
             let task = match tasks.get_mut(&task_id) {
                 Some(task) => task,
                 None => continue,
             };
-            let waker = waker_cache.entry(task_id).or_insert_with(
-                || TaskWaker::new_waker(task_id, task_queue.clone())
-            );
+            let waker = waker_cache
+                .entry(task_id)
+                .or_insert_with(|| TaskWaker::new_waker(task_id, task_queue.clone()));
 
             let mut context = Context::from_waker(waker);
             match task.poll(&mut context) {
@@ -77,14 +80,13 @@ impl Executor {
     }
 }
 
-
 impl Default for Executor {
     fn default() -> Self {
-    Self::new()
+        Self::new()
     }
 }
 
-/// A waker struct that holds the task ID and a reference of the task queue 
+/// A waker struct that holds the task ID and a reference of the task queue
 pub struct TaskWaker {
     task_id: TaskId,
     task_queue: Arc<ArrayQueue<TaskId>>,
@@ -104,7 +106,6 @@ impl TaskWaker {
         self.task_queue.push(self.task_id).expect("task_queue full");
     }
 }
-
 
 impl Wake for TaskWaker {
     /// Wrapper implementation for Wake functionality with the TaskWaker struct
