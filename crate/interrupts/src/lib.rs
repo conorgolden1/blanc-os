@@ -19,6 +19,7 @@ lazy_static! {
     pub static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
+        idt.overflow.set_handler_fn(overflow_handler);
         unsafe {
             idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(gdt::DOUBLE_FAULT_INDEX);
         }
@@ -109,6 +110,16 @@ extern "x86-interrupt" fn tmp_handler(stack_frame: InterruptStackFrame) {
     panic!("EXCEPTION: TEMP EXCEPTION\n{:#?}\n", stack_frame);
 }
 
+extern "x86-interrupt" fn overflow_handler(stack_frame: InterruptStackFrame) {
+    println!("EXCEPTION: PAGE FAULT");
+    println!("Accessed Address: {:?}", Cr2::read());
+    println!("{:#?}", stack_frame);
+
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
+
 
 ///Doesnt do anything at the moment
 ///TODO: Notify the ata caller that the ata controller is ready
@@ -149,9 +160,7 @@ use x86_64::registers::control::Cr2;
 
 ///Page fault handler prints out the respective errors and stack frame and halts cpu execution
 extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
-    loop {
-        x86_64::instructions::hlt();
-    }
+    
     println!("EXCEPTION: PAGE FAULT");
     println!("Accessed Address: {:?}", Cr2::read());
     println!("Error Code: {:?}", _error_code);
@@ -160,6 +169,9 @@ extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, 
     // unsafe {
     //     PICS.lock().notify_end_of_interrupt(0xE);
     // }
+    loop {
+        x86_64::instructions::hlt();
+    }
    
 }
 

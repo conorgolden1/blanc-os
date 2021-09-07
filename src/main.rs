@@ -5,6 +5,8 @@
 #![test_runner(test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+use alloc::boxed::Box;
+use alloc::vec;
 #[allow(unused_imports)]
 use blanc_os::test_runner;
 
@@ -38,11 +40,13 @@ use memory::phys::PhysFrameAllocator;
 
 use printer::{print, println};
 
+use task::elf2::load_elf;
 // use task::context_switch::new_context_switch;
 // use task::elf;
 // use task::elf::Pml4Creator;
 // use x86_64::PhysAddr;
 use x86_64::registers::control::Cr3;
+use x86_64::registers::control::Cr4;
 
 
 
@@ -75,36 +79,13 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
 
     #[cfg(test)]
     test_main();
-
-    // for (i, entry) in KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().iter().enumerate() {
-    //     if !entry.is_unused() {
-    //         println!("{} {:#?}", i , entry);
-    //     }
-    // }
     
-    println!("KERNEL_PAGE_TABLE {:#?}", KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().index(0).addr());
-    assert_eq!(KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().index(0).frame().unwrap(), active_level_4_table().index(0).frame().unwrap());
-    assert_eq!(KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().index(508).frame().unwrap(), Cr3::read().0);
-    
-    let x = xmas_elf::ElfFile::new(USERLAND_SHELL).unwrap();
-    println!("RAW ENTRY POINT {:#?}", x.header.pt2.entry_point());
-
-    let _shell_proc = task::binary("shell", USERLAND_SHELL, task::task::Ring::Ring3);
-    
-    // for (i, (entry_x, entry_y)) in shell_proc.pml4.iter().zip(KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().iter()).enumerate(){
-    //     if !entry_x.is_unused() {
-    //         println!("{} {:#?}", i , entry_x);
-    //         assert!(!entry_y.is_unused());
-    //     }
-    // }
-    
-  
-    
-    // x86_64::instructions::interrupts::disable();
-    // println!("SWITCHING TO {}!", shell_proc.name);
-    // unsafe {
-    //     new_context_switch(shell_proc);
-    // }
+    // println!("{:#?}", Cr4::read() );
+   
+    // let mut raw = vec::Vec::new();
+    // raw.resize(USERLAND_SHELL.len(), 0);
+    // raw.clone_from_slice(USERLAND_SHELL);
+    // load_elf(raw.as_slice());
     
     let mut executor = Executor::new();
 

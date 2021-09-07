@@ -12,6 +12,8 @@ xmas-elf = "0.8.0"
 x86_64 = "0.14.4"
 intrusive-collections = "0.9.2"
 os_units = "0.4.2"
+elfloader = "0.14.0"
+
 # Memory
 memory = { path = "../memory" }
 

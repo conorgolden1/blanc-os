@@ -1,9 +1,10 @@
 //! OS Memory functionality and Structures
 #![no_std]
 #![feature(asm)]
-#![feature(const_mut_refs)]
-#![feature(lang_items)]
-#![feature(alloc_error_handler)]
+#![feature(const_mut_refs,
+    lang_items,
+    alloc_error_handler)]
+
 
 use bootloader::boot_info::Optional;
 use printer::{println, print};

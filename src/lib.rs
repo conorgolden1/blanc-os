@@ -49,6 +49,16 @@ fn test_lib_testing() {
     assert_eq!(1 + 1, 2)
 }
 
+#[cfg(test)]
+#[rustfmt::skip]
+static DO_NOTHING: &[u8] = include_bytes!("../applications/do-nothing/target/x86_64-rust-os/debug/do-nothing");
+
+#[test_case]
+fn test_empty_load_elf() {
+    use task::elf2::load_elf;
+
+    load_elf(DO_NOTHING);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -73,7 +83,14 @@ fn test_entry_main(boot_info: &'static mut BootInfo) -> ! {
         init_logger(frame_buffer.buffer_mut(), frame_buffer_info);
     }
     init();
+    unsafe { memory::init(boot_info.recursive_index) };
+    
+    memory::phys::PhysFrameAllocator::init(&boot_info.memory_regions);
+    
+    memory::allocator::init_heap().expect("Heap did not properly map");
+
     test_main();
+    
     halt_loop();
 }
 

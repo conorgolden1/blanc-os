@@ -1,7 +1,13 @@
 use bootloader::boot_info::TlsTemplate;
-use memory::{KERNEL_PAGE_TABLE, kpbox::KpBox, phys::FRAME_ALLOCATOR};
+use memory::{kpbox::KpBox, phys::FRAME_ALLOCATOR, KERNEL_PAGE_TABLE};
 use printer::{print, println};
-use x86_64::{VirtAddr, structures::paging::{FrameAllocator, Page, PageSize, PageTable, PageTableFlags, PhysFrame, Size4KiB, mapper::MapperAllSizes}};
+use x86_64::{
+    structures::paging::{
+        mapper::MapperAllSizes, FrameAllocator, Page, PageSize, PageTable, PageTableFlags,
+        PhysFrame, Size4KiB,
+    },
+    VirtAddr,
+};
 use xmas_elf::{
     header,
     program::{self},
@@ -31,7 +37,7 @@ where
     }
 
     pub fn load_segments(&mut self) -> Result<Option<TlsTemplate>, &'static str> {
-        let mut tls_template = None;
+        let mut _tls_template = None;
         for program_header in self.elf_file.program_iter() {
             program::sanity_check(program_header, &self.elf_file)?;
 
@@ -46,27 +52,33 @@ where
                 | program::Type::Phdr
                 | program::Type::GnuRelro
                 | program::Type::OsSpecific(_)
-                | program::Type::ProcessorSpecific(_) => {},
+                | program::Type::ProcessorSpecific(_) => {}
             }
         }
 
-        Ok(tls_template)
+        Ok(_tls_template)
     }
 
     pub(super) fn map_page_box(&mut self, b: &KpBox<impl ?Sized>) {
         use core::convert::TryFrom;
         for i in 0..b.bytes().as_num_of_pages::<Size4KiB>().as_usize() {
             let off = Size4KiB::SIZE * u64::try_from(i).unwrap();
-            let page = Page::from_start_address( b.virt_addr() + off).expect("Page is not aligned.");
+            let page = Page::from_start_address(b.virt_addr() + off).expect("Page is not aligned.");
             let frame = FRAME_ALLOCATOR.wait().unwrap().allocate_frame().unwrap();
             self.map(page, frame);
         }
     }
 
-    fn map(&mut self, page : Page<Size4KiB>, frame : PhysFrame<Size4KiB>) {
+    fn map(&mut self, page: Page<Size4KiB>, frame: PhysFrame<Size4KiB>) {
         let flags =
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
-        unsafe {self.inner.page_table.map_to(page, frame, flags, FRAME_ALLOCATOR.wait().as_mut().unwrap()).unwrap().flush()};
+        unsafe {
+            self.inner
+                .page_table
+                .map_to(page, frame, flags, FRAME_ALLOCATOR.wait().as_mut().unwrap())
+                .unwrap()
+                .flush()
+        };
     }
 
     pub fn get_table(&'a mut self) -> &'a mut M {
@@ -74,7 +86,6 @@ where
     }
 
     pub fn entry_point(&self) -> VirtAddr {
-       
         VirtAddr::new(self.elf_file.header.pt2.entry_point())
     }
 }
@@ -135,10 +146,7 @@ where
 
         Ok(())
     }
-
-    
 }
-
 
 #[derive(Default)]
 pub struct Pml4Creator {

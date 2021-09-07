@@ -1,5 +1,5 @@
 [package]
-name = "shell"
+name = "do-nothing"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,6 @@ edition = "2021"
 [workspace]
 
 [dependencies]
-
 
 [profile.dev]
 panic = "abort"

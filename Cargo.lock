@@ -46,12 +46,14 @@ dependencies = [
  "elfloader",
  "gdt",
  "interrupts",
+ "lazy_static",
  "memory",
  "os_units",
  "printer",
  "serial",
  "spin 0.5.2",
  "task",
+ "volatile 0.2.7",
  "x86_64",
  "xmas-elf 0.6.2",
 ]
@@ -464,6 +466,7 @@ name = "task"
 version = "0.1.0"
 dependencies = [
  "bootloader",
+ "elfloader",
  "fs",
  "gdt",
  "hashbrown",
@@ -520,6 +523,12 @@ checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 
 [[package]]
 name = "volatile"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6b06ad3ed06fef1713569d547cdbdb439eafed76341820fb0e0344f29a41945"
+
+[[package]]
+name = "volatile"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4c2dbd44eb8b53973357e6e207e370f0c1059990df850aca1eca8947cf464f0"
@@ -547,7 +556,7 @@ checksum = "d95947de37ad0d2d9a4a4dd22e0d042e034e5cbd7ab53edbca0d8035e0a6a64d"
 dependencies = [
  "bit_field",
  "bitflags",
- "volatile",
+ "volatile 0.4.4",
 ]
 
 [[package]]

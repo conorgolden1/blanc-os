@@ -1,15 +1,15 @@
 [package]
 name = "blanc_os"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = [
-    "simple_boot",
-    "crate/*"
-]
+members = [ "simple_boot", "crate/*", ]
+exclude = [ "applications/*", ]
+
+
 
 [dependencies]
 x86_64 = "0.14.4"
@@ -30,10 +30,8 @@ serial = { path = "crate/serial" }
 # OS Printer
 printer = { path = "crate/printer" }
 
-# Memory
+# Memory Management
 memory = { path = "crate/memory" }
-
-
 
 # Task structures
 task = { path = "crate/task" }
@@ -41,11 +39,16 @@ task = { path = "crate/task" }
 # Cooperative Multitasking
 coop = { path = "crate/coop" }
 
+#############################
+# Testing Imports
+
+volatile = "0.2.6"
+lazy_static = { version = "1.0", features = ["spin_no_std"]}
+#############################
+
 
 [dependencies.bootloader]
 version = "0.10.7"
-
-
 
 [package.metadata.bootloader]
 map-page-table-recursively = true
