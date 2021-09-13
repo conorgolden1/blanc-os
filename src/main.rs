@@ -29,17 +29,20 @@ use coop::keyboard;
 use coop::mouse;
 use coop::Task;
 
-
-use memory::KERNEL_PAGE_TABLE;
+use interrupts::syscall;
 use memory::active_level_4_table;
+use memory::KERNEL_PAGE_TABLE;
 
 use memory::allocator;
 use memory::init;
 
 use memory::phys::PhysFrameAllocator;
+use memory::phys::FRAME_ALLOCATOR;
 
 use printer::{print, println};
 
+use serial::serial_print;
+use serial::serial_println;
 use task::elf2::load_elf;
 // use task::context_switch::new_context_switch;
 // use task::elf;
@@ -47,23 +50,18 @@ use task::elf2::load_elf;
 // use x86_64::PhysAddr;
 use x86_64::registers::control::Cr3;
 use x86_64::registers::control::Cr4;
-
-
-
-
+use x86_64::structures::paging::FrameAllocator;
+use x86_64::structures::paging::Mapper;
+use x86_64::structures::paging::Size4KiB;
 
 #[rustfmt::skip]
-static USERLAND_SHELL: &[u8] = include_bytes!("../applications/shell/target/x86_64-rust-os/debug/shell");
-
+static HELLO_WORLD: &[u8] = include_bytes!("../applications/hello_world/target/hello_world/debug/hello_world");
 
 
 /// The kernels main after being handed off from the bootloader
 ///
 /// This area is where the execution of the kernel begins
 fn main(boot_info: &'static mut BootInfo) -> ! {
-
-    
-
     let frame_buffer_info = boot_info.framebuffer.as_ref().unwrap().info();
     if let Some(frame_buffer) = boot_info.framebuffer.as_mut() {
         blanc_os::init_logger(frame_buffer.buffer_mut(), frame_buffer_info);
@@ -72,21 +70,27 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     blanc_os::init();
 
     unsafe { init(boot_info.recursive_index) };
-    
+
     PhysFrameAllocator::init(&boot_info.memory_regions);
-    
+
     allocator::init_heap().expect("Heap did not properly map");
 
     #[cfg(test)]
     test_main();
     
-    // println!("{:#?}", Cr4::read() );
-   
-    // let mut raw = vec::Vec::new();
-    // raw.resize(USERLAND_SHELL.len(), 0);
-    // raw.clone_from_slice(USERLAND_SHELL);
-    // load_elf(raw.as_slice());
-    
+    use task::elf2::align_bin;
+
+    let raw = align_bin(HELLO_WORLD);
+    let elf = load_elf(raw.as_slice(), 0xFF00_0000);
+    unsafe {
+    x86_64::registers::control::Efer::write_raw(
+        x86_64::registers::control::Efer::read_raw() ^ 2^11);
+    asm!(
+        "jmp {}",
+        in(reg) (elf.entry_point() + 0xFF00_0000)
+    );}
+
+
     let mut executor = Executor::new();
 
     executor.spawn(Task::new(keyboard::print_keypresses()));
@@ -94,9 +98,6 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     executor.run();
 }
 
-
-
-use core::ops::Index;
 use core::panic::PanicInfo;
 
 /// Operating System panic handler for stopping
@@ -108,21 +109,19 @@ fn panic(_info: &PanicInfo) -> ! {
     blanc_os::halt_loop()
 }
 
-
-
 /////////////////////////////////////////////////////////////////
 //                          TESTS
 ////////////////////////////////////////////////////////////////
 
 #[test_case]
 fn test_main_testing() {
-    assert_eq!(2+2, 4)
+    assert_eq!(2 + 2, 4)
 }
 
 #[test_case]
 fn test_same_frame_alloc_dealloc() {
     use memory::phys::FRAME_ALLOCATOR;
-    use x86_64::structures::paging::{FrameDeallocator, FrameAllocator};
+    use x86_64::structures::paging::{FrameAllocator, FrameDeallocator};
 
     let mut frame_allocator = FRAME_ALLOCATOR.wait().unwrap();
     for _ in 0..100 {
@@ -139,7 +138,10 @@ fn test_new_frame_alloc() {
     use x86_64::structures::paging::FrameAllocator;
 
     let mut frame_allocator = FRAME_ALLOCATOR.wait().unwrap();
-    assert_ne!(frame_allocator.allocate_frame(), frame_allocator.allocate_frame())
+    assert_ne!(
+        frame_allocator.allocate_frame(),
+        frame_allocator.allocate_frame()
+    )
 }
 
 #[test_case]
@@ -159,9 +161,6 @@ fn test_box_heap_alloc() {
     drop(Box::new([0u64; 100]));
 }
 
-
-
-
 #[test_case]
 fn test_vec_heap_alloc() {
     use alloc::vec::Vec;
@@ -171,5 +170,37 @@ fn test_vec_heap_alloc() {
         vec.push(i);
     }
     drop(vec)
+}
+
+#[test_case]
+fn test_allocated_virtual_address() {
+    use memory::phys::FRAME_ALLOCATOR;
+    use x86_64::structures::paging::Page;
+    use x86_64::structures::paging::PageTableFlags;
+    use x86_64::structures::paging::RecursivePageTable;
+    use x86_64::VirtAddr;
+
+    let mut current_pt =
+        RecursivePageTable::new(active_level_4_table()).expect("Couldn't obtain active page table");
+
+    let addr = VirtAddr::new(0xdeadbeef);
+    let page = Page::<Size4KiB>::containing_address(addr);
+    let frame = FRAME_ALLOCATOR.wait().unwrap().allocate_frame().unwrap();
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+
+    unsafe { current_pt.map_to(page, frame, flags, FRAME_ALLOCATOR.wait().as_mut().unwrap()) };
+
+    // Assert that the memory address is not available
+    assert!(!memory::virt::available(addr))
+}
+
+
+#[test_case]
+fn test_syscall_print() {
+    use interrupts::syscall::syscall;
+    let hello_world = "hello world";
+    let hello_world_ptr = hello_world.as_ptr() as u64;
+    let num_bytes = hello_world.as_bytes().len();
+    unsafe { syscall(0, 0, hello_world_ptr ,num_bytes as u64)};
 }
 

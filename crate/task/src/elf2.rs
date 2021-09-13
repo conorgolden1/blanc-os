@@ -7,9 +7,10 @@
 // given there size and there starting address, so when a page fault occurs we can reference
 // the tasks segment size to see if it is out of bounds or more memory can be allocated to it.
 // Also the way that this is set up, is meant for processes that are position independent executables
-use elfloader::{ElfBinary, ElfLoader};
+use elfloader::{ElfBinary, ElfLoader, TypeRela64};
 use memory::{active_level_4_table, phys::FRAME_ALLOCATOR};
 
+use printer::{print,println};
 use x86_64::{
     align_up,
     structures::paging::{
@@ -17,14 +18,23 @@ use x86_64::{
     },
     VirtAddr,
 };
+extern crate alloc;
+use alloc::vec::Vec;
 
 /// Allocate and load the binary from the current active page table
-/// this function sets the new elf binary at a memory offset of 0x1000_0000
-pub fn load_elf(bin: &[u8]) -> ElfBinary {
+/// this function sets the new elf binary at a memory offset
+pub fn load_elf(bin: &[u8], offset : u64) -> ElfBinary {
     let elf = ElfBinary::new(bin).unwrap();
-    let mut loader = ElfMemory::new(0x1000_0000);
+    let mut loader = ElfMemory::new(offset);
     elf.load(&mut loader).unwrap();
     elf
+}
+
+pub fn align_bin(bin: &[u8]) -> Vec<u8> {
+    let mut vec = Vec::<u8>::new();
+    vec.resize(bin.len(), 0);
+    vec.clone_from_slice(bin);
+    vec
 }
 
 /// This struct represents a loaded ELF executable in memory starting at an
@@ -62,11 +72,10 @@ impl ElfLoader for ElfMemory {
             let start = self.vbase + header.virtual_addr();
             let end = align_up(start + header.mem_size(), Size4KiB::SIZE);
             let start_virt = VirtAddr::new(start);
-            let end_virt = VirtAddr::new(end);
+            let end_virt = VirtAddr::new(end - 1);
             let start_page = Page::<Size4KiB>::containing_address(start_virt);
             let end_page = Page::<Size4KiB>::containing_address(end_virt);
             let page_range = Page::range_inclusive(start_page, end_page);
-
             for page in page_range {
                 let frame = FRAME_ALLOCATOR.wait().unwrap().allocate_frame().unwrap();
 
@@ -79,7 +88,10 @@ impl ElfLoader for ElfMemory {
                         FRAME_ALLOCATOR.wait().as_mut().unwrap(),
                     );
 
-                    result.unwrap().flush();
+                    match result {
+                        Ok(mapper_flush) => mapper_flush.flush(),
+                        Err(err) => panic!("{:#?} => {:#?}", page, err),
+                    }
                 }
             }
         }
@@ -113,6 +125,16 @@ impl ElfLoader for ElfMemory {
         &mut self,
         entry: &elfloader::Rela<elfloader::P64>,
     ) -> Result<(), elfloader::ElfLoaderErr> {
-        todo!()
+        let typ = TypeRela64::from(entry.get_type());
+        let addr: *mut u64 = (self.vbase + entry.get_offset()) as *mut u64;
+
+        match typ {
+            TypeRela64::R_RELATIVE => {
+                unsafe { *addr = self.vbase() + entry.get_addend() };
+                Ok(())
+            }
+            _ => todo!("{:#?} else not yet implemented", typ)
+        }
+        
     }
 }

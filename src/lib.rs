@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(asm)]
 #![reexport_test_harness_main = "test_main"]
 #![test_runner(crate::test_runner)]
 #![cfg_attr(test, no_main)]
@@ -51,13 +52,29 @@ fn test_lib_testing() {
 
 #[cfg(test)]
 #[rustfmt::skip]
-static DO_NOTHING: &[u8] = include_bytes!("../applications/do-nothing/target/x86_64-rust-os/debug/do-nothing");
+static HELLO_WORLD: &[u8] = include_bytes!("../applications/hello_world/target/hello_world/debug/hello_world");
 
 #[test_case]
 fn test_empty_load_elf() {
     use task::elf2::load_elf;
+    use task::elf2::align_bin;
 
-    load_elf(DO_NOTHING);
+    let raw = align_bin(HELLO_WORLD);
+    load_elf(raw.as_slice(), 0x1000_0000);
+}
+
+#[test_case]
+fn test_empty_load_elf2() {
+    use task::elf2::load_elf;
+    use task::elf2::align_bin;
+
+    let raw = align_bin(HELLO_WORLD);
+    load_elf(raw.as_slice(), 0xF000_0000);
+}
+
+#[test_case]
+fn test_switch_to_elf() {
+
 }
 
 

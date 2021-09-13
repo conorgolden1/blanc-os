@@ -229,6 +229,7 @@ dependencies = [
  "coop",
  "gdt",
  "lazy_static",
+ "memory",
  "pic8259",
  "printer",
  "spin 0.5.2",

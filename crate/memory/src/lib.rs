@@ -6,14 +6,13 @@
     alloc_error_handler)]
 
 
+use alloc::format;
 use bootloader::boot_info::Optional;
 use printer::{println, print};
 use core::{ops::Index};
 use spin::{Mutex, Once};
 use virt::deallocate_pages;
-use x86_64::{registers::control::Cr3, structures::paging::{
-        PageTable, RecursivePageTable,
-    }};
+use x86_64::{registers::control::Cr3, structures::paging::{PageTable, RecursivePageTable, page_table::FrameError}};
 
 extern crate alloc;
 

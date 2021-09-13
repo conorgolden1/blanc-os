@@ -19,7 +19,6 @@ pub extern "C" fn _start() -> ! {
     panic!("Execution continued after break_point");
 }
 
-
 fn breakpoint() {
     x86_64::instructions::interrupts::int3();
 }
@@ -35,8 +34,7 @@ use x86_64::structures::idt::InterruptDescriptorTable;
 lazy_static! {
     static ref TEST_IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
-        idt.breakpoint
-            .set_handler_fn(test_break_trap_handler);
+        idt.breakpoint.set_handler_fn(test_break_trap_handler);
         idt
     };
 }
@@ -45,17 +43,11 @@ pub fn init_test_idt() {
     TEST_IDT.load();
 }
 
-
-
 use blanc_os::{exit_qemu, QemuExitCode};
 use x86_64::structures::idt::InterruptStackFrame;
 
-extern "x86-interrupt" fn test_break_trap_handler(
-    _stack_frame: InterruptStackFrame,
-) {
+extern "x86-interrupt" fn test_break_trap_handler(_stack_frame: InterruptStackFrame) {
     serial_println!("[ok]");
     exit_qemu(QemuExitCode::Success);
-    loop {
-        
-    }
+    loop {}
 }

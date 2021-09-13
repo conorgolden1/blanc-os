@@ -8,13 +8,10 @@ use core::panic::PanicInfo;
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    
     test_main();
 
     loop {}
-    
 }
-
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -22,15 +19,13 @@ fn panic(info: &PanicInfo) -> ! {
     test_panic_handler(info)
 }
 
-use serial::serial_println;
 use serial::serial_print;
-
+use serial::serial_println;
 
 #[test_case]
 fn test_serial_println() {
     serial_println!("test_serial_println output");
 }
-
 
 #[test_case]
 fn test_serial_print() {

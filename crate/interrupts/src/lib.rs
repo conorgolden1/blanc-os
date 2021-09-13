@@ -2,6 +2,8 @@
 
 #![no_std]
 #![feature(abi_x86_interrupt)]
+#![feature(global_asm)]
+#![feature(asm)]
 
 /// Calls the load IDT function, loading the table into the cpu
 pub fn init_idt() { 
@@ -13,6 +15,8 @@ use coop::mouse;
 use lazy_static::lazy_static;
 use x86_64::structures::idt::InterruptDescriptorTable;
 use printer::{print, println};
+
+pub mod syscall;
 
 lazy_static! {
     ///Static Interrupt Descriptor Table with all of the registered interrupt types and their handler functions
@@ -38,6 +42,7 @@ lazy_static! {
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         idt[InterruptIndex::PrimATA.as_usize()].set_handler_fn(ata_interrupt_handler);
         idt[InterruptIndex::Mouse.as_usize()].set_handler_fn(mouse_interrupt_handler);
+        idt[0x80].set_handler_fn(syscall);
         idt.page_fault.set_handler_fn(page_fault_handler);
         idt.divide_error.set_handler_fn(divide_error_handler);
         idt.general_protection_fault.set_handler_fn(general_protection_handler);
@@ -46,6 +51,27 @@ lazy_static! {
 
         idt
     };
+}
+
+extern "x86-interrupt" fn syscall(_: InterruptStackFrame) {
+    //     unsafe { syscall(4, 5, 6 ,7)};
+
+    let call_num : u64 ;
+    let param1 : u64;
+    let param2 : u64;
+    let param3 : u64;
+    unsafe {
+        asm!("mov {}, rax", out(reg) call_num);
+        asm!("mov {}, rdi", out(reg) param1);
+        asm!("mov {}, rsi", out(reg) param2);
+        asm!("mov {}, rdx", out(reg) param3);
+    }
+    if (call_num as usize) < SYSTEM_CALLS.len() {
+        SYSTEM_CALLS[call_num as usize](param1, param2, param3);
+    }
+    unsafe {
+        PICS.lock().notify_end_of_interrupt(0x80);
+    }
 }
 
 use pic8259::ChainedPics;
@@ -157,21 +183,36 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
 
 use x86_64::structures::idt::PageFaultErrorCode;
 use x86_64::registers::control::Cr2;
+use x86_64::structures::paging::Mapper;
+use x86_64::structures::paging::Page;
+use x86_64::structures::paging::PageTableFlags;
+use x86_64::structures::paging::RecursivePageTable;
+use x86_64::structures::paging::Size4KiB;
+
+use crate::syscall::SYSTEM_CALLS;
 
 ///Page fault handler prints out the respective errors and stack frame and halts cpu execution
 extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
-    
+    let acc_addr = Cr2::read();
     println!("EXCEPTION: PAGE FAULT");
-    println!("Accessed Address: {:?}", Cr2::read());
+    println!("Accessed Address: {:?}", acc_addr);
     println!("Error Code: {:?}", _error_code);
     println!("{:#?}", _stack_frame);
 
-    // unsafe {
-    //     PICS.lock().notify_end_of_interrupt(0xE);
-    // }
-    loop {
-        x86_64::instructions::hlt();
+    if _error_code == PageFaultErrorCode::INSTRUCTION_FETCH {
+        let mut rpt = RecursivePageTable::new(memory::active_level_4_table()).unwrap();
+        let page = Page::<Size4KiB>::containing_address(acc_addr);
+        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+        unsafe {
+            rpt.update_flags(page, flags).unwrap();
+            PICS.lock().notify_end_of_interrupt(0xE);
+        }
+    } else {
+        loop {
+            x86_64::instructions::hlt();
+        }
     }
+    
    
 }
 

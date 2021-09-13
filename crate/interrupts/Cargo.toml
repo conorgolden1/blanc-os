@@ -20,6 +20,10 @@ printer = { path = "../printer" }
 
 coop = { path = "../coop" }
 
+# Memory
+
+memory = { path = "../memory" }
+
 [dependencies.lazy_static]
 version = "1.0"
 features = ["spin_no_std"]

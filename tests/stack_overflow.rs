@@ -49,8 +49,6 @@ pub fn init_test_idt() {
     TEST_IDT.load();
 }
 
-
-
 use blanc_os::{exit_qemu, QemuExitCode};
 use x86_64::structures::idt::InterruptStackFrame;
 
@@ -60,7 +58,5 @@ extern "x86-interrupt" fn test_double_fault_handler(
 ) -> ! {
     serial_println!("[ok]");
     exit_qemu(QemuExitCode::Success);
-    loop {
-        
-    }
+    loop {}
 }

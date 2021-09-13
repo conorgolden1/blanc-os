@@ -1,0 +1,3 @@
+[alias]
+sbuild = "build --target hello_world.json -Zbuild-std=core -Zbuild-std-features=compiler-builtins-mem"
+sasm = "rustc --target hello_world.json -Zbuild-std=core -Zbuild-std-features=compiler-builtins-mem -- --emit asm"

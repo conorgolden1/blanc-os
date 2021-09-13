@@ -4,8 +4,8 @@
 #![test_runner(test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+use blanc_os::{exit_qemu, QemuExitCode};
 use core::panic::PanicInfo;
-use blanc_os::{QemuExitCode, exit_qemu};
 use serial::{serial_print, serial_println};
 
 use blanc_os::test_runner;
@@ -22,9 +22,7 @@ pub extern "C" fn _start() -> ! {
     should_fail();
     serial_println!("[test did not panic]");
     exit_qemu(QemuExitCode::Failed);
-    loop {
-         
-    }
+    loop {}
 }
 
 fn should_fail() {

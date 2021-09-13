@@ -19,7 +19,7 @@ use x86_64::{
 /// Search for any free address space that has a consistent number of pages in the
 /// active level 4 page table
 /// O(n)
-fn search_free_addr(num_pages: NumOfPages<Size4KiB>) -> Option<VirtAddr> {
+pub fn search_free_addr(num_pages: NumOfPages<Size4KiB>) -> Option<VirtAddr> {
     let mut cnt = 0;
     let mut start = None;
     for addr in (0..(*BYTES_AVAILABLE_RAM.wait().unwrap()) as usize)
@@ -46,7 +46,7 @@ fn search_free_addr(num_pages: NumOfPages<Size4KiB>) -> Option<VirtAddr> {
 }
 
 /// Check to see if an address is free from the current active level page table
-fn available(addr: VirtAddr) -> bool {
+pub fn available(addr: VirtAddr) -> bool {
     let pml4 = RecursivePageTable::new(active_level_4_table()).unwrap();
     pml4.translate_addr(addr).is_none() && !addr.is_null()
 }
