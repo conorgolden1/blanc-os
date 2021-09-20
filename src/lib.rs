@@ -1,3 +1,17 @@
+//! Blanc OS's parts are designed in modularized crates added as dependencies
+//! those parts are then initalized and executed in the main or init functions
+//! located here
+//!
+//! List of Kernel Crates
+//! 1. [coop](../coop/index.html)   :  Cooperative Multitasking
+//! 2. [fs](../fs/index.html)   : Virtual FileSystem
+//! 3. [gdt](../fs/index.html)  : Global Descriptor Table
+//! 4. [interrupts](../interrupts/index.html)  : Interrupt Descriptor Table
+//! 5. [memory](../memory/index.html)  : Physical and Virtual Memory Manager
+//! 6. [printer](../printer/index.html)   : Screen printing functionality
+//! 7. [serial](../serial/index.html)   : Qemu emulator terminal printing functionality
+//! 8. [task](../task/index.html)   : Process/Task usage and Multitasking functionality
+
 #![no_std]
 #![feature(asm)]
 #![reexport_test_harness_main = "test_main"]
@@ -31,7 +45,7 @@ use bootloader::boot_info::FrameBufferInfo;
 use printer::{Writer, WRITER};
 use serial::{serial_print, serial_println};
 use spin::Mutex;
-/// Initializes the Writter to the screen
+/// Initializes the Writer to the screen
 pub fn init_logger(framebuffer: &'static mut [u8], info: FrameBufferInfo) {
     let mutex_writer = Mutex::new(Writer::new(framebuffer, info));
     WRITER.init_once(|| mutex_writer);
