@@ -21,8 +21,10 @@ printer = { path = "../printer" }
 coop = { path = "../coop" }
 
 # Memory
-
 memory = { path = "../memory" }
+
+# Task
+task = { path = "../task" }
 
 [dependencies.lazy_static]
 version = "1.0"
