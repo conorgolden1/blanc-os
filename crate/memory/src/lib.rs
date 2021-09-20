@@ -6,13 +6,11 @@
     alloc_error_handler)]
 
 
-use alloc::format;
 use bootloader::boot_info::Optional;
-use printer::{println, print};
 use core::{ops::Index};
 use spin::{Mutex, Once};
 use virt::deallocate_pages;
-use x86_64::{registers::control::Cr3, structures::paging::{PageTable, RecursivePageTable, page_table::FrameError}};
+use x86_64::{registers::control::Cr3, structures::paging::{PageTable, RecursivePageTable}};
 
 extern crate alloc;
 
@@ -60,10 +58,7 @@ pub fn active_level_4_table() -> &'static mut PageTable {
 
 ///TODO
 pub fn swap_to_kernel_table() {
-    println!("Swapping kernel table");
-    println!("RECURSIVE INDEX : {}", *RECURSIVE_INDEX.wait().unwrap().lock());
-
-
+    *RECURSIVE_INDEX.wait().unwrap().lock() = 508;
     unsafe {Cr3::write( KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().index(508).frame().unwrap(), Cr3::read().1)};
     x86_64::instructions::tlb::flush_all();
 
