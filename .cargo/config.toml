@@ -2,11 +2,8 @@
 runner = "cargo run --package simple_boot --"
 
 [alias]
+kcheck = "check --target x86_64-rust-os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
 kbuild = "build --target x86_64-rust-os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
 kimage = "run --target x86_64-rust-os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -- --no-run"
 krun = "run --target x86_64-rust-os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
-
 ktest = "test --target x86_64-rust-os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
-
-
-sbuild = "build --target x86_64-rust-os.json -Zbuild-std=core -Zbuild-std-features=compiler-builtins-mem"
