@@ -43,20 +43,21 @@ use printer::{print, println};
 
 use serial::serial_print;
 use serial::serial_println;
-use task::elf2::load_elf;
-// use task::context_switch::new_context_switch;
-// use task::elf;
-// use task::elf::Pml4Creator;
-// use x86_64::PhysAddr;
+
+use task::scheduler::Scheduler;
+use task::task::Pml4Creator;
+use task::task::Ring;
 use x86_64::registers::control::Cr3;
 use x86_64::registers::control::Cr4;
 use x86_64::structures::paging::FrameAllocator;
 use x86_64::structures::paging::Mapper;
+use x86_64::structures::paging::RecursivePageTable;
 use x86_64::structures::paging::Size4KiB;
 
 #[rustfmt::skip]
 static HELLO_WORLD: &[u8] = include_bytes!("../applications/hello_world/target/hello_world/debug/hello_world");
-
+static SHELL : &[u8] = include_bytes!("../applications/shell/target/shell/debug/shell");
+static DO_NOTHING : &[u8] = include_bytes!("../applications/shell/target/shell/debug/shell");
 
 /// The kernels main after being handed off from the bootloader
 ///
@@ -77,25 +78,24 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
 
     #[cfg(test)]
     test_main();
-    
-    use task::elf2::align_bin;
 
-    let raw = align_bin(HELLO_WORLD);
-    let elf = load_elf(raw.as_slice(), 0xFF00_0000);
-    unsafe {
-    x86_64::registers::control::Efer::write_raw(
-        x86_64::registers::control::Efer::read_raw() ^ 2^11);
-    asm!(
-        "jmp {}",
-        in(reg) (elf.entry_point() + 0xFF00_0000)
-    );}
+    let nothing1 = task::task::Task::binary(Some("nothing1"), DO_NOTHING, Some(Ring::Ring0), None);
+    let nothing2 = task::task::Task::binary(Some("nothing2"), DO_NOTHING, Some(Ring::Ring0), None);
 
+    Scheduler::init();
 
-    let mut executor = Executor::new();
+    Scheduler::add_task(nothing1).unwrap();
+    Scheduler::add_task(nothing2).unwrap();
 
-    executor.spawn(Task::new(keyboard::print_keypresses()));
-    executor.spawn(Task::new(mouse::print_mouse()));
-    executor.run();
+    use interrupts::READY;
+    *READY.lock() = true;
+    loop {}
+
+    // let mut executor = Executor::new();
+
+    // executor.spawn(Task::new(keyboard::print_keypresses()));
+    // executor.spawn(Task::new(mouse::print_mouse()));
+    // executor.run();
 }
 
 use core::panic::PanicInfo;
@@ -146,11 +146,13 @@ fn test_new_frame_alloc() {
 
 #[test_case]
 fn test_print() {
+    use printer::print;
     print!("")
 }
 
 #[test_case]
 fn test_println() {
+    use printer::{println, print};
     println!()
 }
 
@@ -194,13 +196,12 @@ fn test_allocated_virtual_address() {
     assert!(!memory::virt::available(addr))
 }
 
-
 #[test_case]
 fn test_syscall_print() {
     use interrupts::syscall::syscall;
+
     let hello_world = "hello world";
     let hello_world_ptr = hello_world.as_ptr() as u64;
     let num_bytes = hello_world.as_bytes().len();
-    unsafe { syscall(0, 0, hello_world_ptr ,num_bytes as u64)};
+    unsafe { syscall(0, 0, hello_world_ptr, num_bytes as u64) };
 }
-

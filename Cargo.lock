@@ -233,6 +233,7 @@ dependencies = [
  "pic8259",
  "printer",
  "spin 0.5.2",
+ "task",
  "x86_64",
 ]
 
@@ -467,6 +468,7 @@ name = "task"
 version = "0.1.0"
 dependencies = [
  "bootloader",
+ "crossbeam-queue",
  "elfloader",
  "fs",
  "gdt",

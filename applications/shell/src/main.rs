@@ -11,7 +11,7 @@ global_asm!(include_str!("syscall_interrupts.s"));
 
 #[no_mangle] // don't mangle the name of this function
 pub extern "C" fn _start() -> ! {
-
+    loop {}
 }
 
 extern "C" {

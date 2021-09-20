@@ -7,13 +7,13 @@
 #![reexport_test_harness_main = "test_main"]
 
 use blanc_os::test_runner;
-use coop::{Task, executor::Executor};
+use coop::{executor::Executor, Task};
 use memory::{allocator, phys::PhysFrameAllocator};
 
 use core::panic::PanicInfo;
 use serial::{serial_print, serial_println};
 
-use bootloader::{BootInfo, entry_point};
+use bootloader::{entry_point, BootInfo};
 
 //  Macro for pointing to where the entry point function is
 entry_point!(main);
@@ -34,20 +34,13 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
 
     #[cfg(test)]
     test_main();
-    
-    
-
-
-    
 
     let mut executor = Executor::new();
 
     executor.spawn(Task::new(coop::keyboard::print_keypresses()));
     executor.spawn(Task::new(coop::mouse::print_mouse()));
     executor.run();
-
 }
-
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {

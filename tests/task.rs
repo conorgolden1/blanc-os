@@ -7,18 +7,19 @@
 #![reexport_test_harness_main = "test_main"]
 
 use blanc_os::test_runner;
-use coop::{Task, executor::Executor};
+use coop::{executor::Executor, Task};
 use memory::{allocator, phys::PhysFrameAllocator};
 
 use core::panic::PanicInfo;
 use serial::{serial_print, serial_println};
 
-use bootloader::{BootInfo, entry_point};
+use bootloader::{entry_point, BootInfo};
 
 //  Macro for pointing to where the entry point function is
 entry_point!(main);
 
-static HELLO_WORLD: &[u8] = include_bytes!("../applications/hello_world/target/hello_world/debug/hello_world");
+static HELLO_WORLD: &[u8] =
+    include_bytes!("../applications/hello_world/target/hello_world/debug/hello_world");
 
 fn main(boot_info: &'static mut BootInfo) -> ! {
     let frame_buffer_info = boot_info.framebuffer.as_ref().unwrap().info();
@@ -36,44 +37,33 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
 
     #[cfg(test)]
     test_main();
-    
-
-
-    
 
     let mut executor = Executor::new();
 
     executor.spawn(Task::new(coop::keyboard::print_keypresses()));
     executor.spawn(Task::new(coop::mouse::print_mouse()));
     executor.run();
-
 }
-
 
 #[test_case]
 fn test_jump_to_elf() {
-    use task::elf2::load_elf;
-    use task::elf2::align_bin;
+    use task::elf::align_bin;
+    use task::task::Ring;
+    use task::task::Task;
+    let elf = task::task::Task::binary(Some("hello_world"), HELLO_WORLD, Some(Ring::Ring0), None);
 
-    let raw = align_bin(HELLO_WORLD);
-    let elf = load_elf(raw.as_slice(), 0xFF00_0000);
-    serial_println!("{:#?}", elf.entry_point());
     unsafe {
-    x86_64::registers::control::Efer::write_raw(
-        x86_64::registers::control::Efer::read_raw() ^ 2^11);
-    asm!(
-        "jmp {}",
-        in(reg) (elf.entry_point() + 0xFF00_0000)
-    );}
-
+        x86_64::registers::control::Efer::write_raw(
+            x86_64::registers::control::Efer::read_raw() ^ 2 ^ 11,
+        );
+        asm!(
+            "jmp {}",
+            in(reg) elf.entry_point()
+        );
+    }
 }
-
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     blanc_os::test_panic_handler(info)
 }
-
-
-
-
