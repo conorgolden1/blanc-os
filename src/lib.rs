@@ -91,7 +91,7 @@ fn test_switch_to_elf() {}
 #[test_case]
 fn test_change_virtual_address_space() {
     use core::ops::Index;
-    use memory::{RECURSIVE_INDEX, swap_to_kernel_table};
+    use memory::{swap_to_kernel_table, RECURSIVE_INDEX};
     use task::task::Pml4Creator;
     use x86_64::registers::control::Cr3;
     use x86_64::structures::paging::PhysFrame;

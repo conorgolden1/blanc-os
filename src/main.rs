@@ -56,8 +56,8 @@ use x86_64::structures::paging::Size4KiB;
 
 #[rustfmt::skip]
 static HELLO_WORLD: &[u8] = include_bytes!("../applications/hello_world/target/hello_world/debug/hello_world");
-static SHELL : &[u8] = include_bytes!("../applications/shell/target/shell/debug/shell");
-static DO_NOTHING : &[u8] = include_bytes!("../applications/shell/target/shell/debug/shell");
+static SHELL: &[u8] = include_bytes!("../applications/shell/target/shell/debug/shell");
+static DO_NOTHING: &[u8] = include_bytes!("../applications/shell/target/shell/debug/shell");
 
 /// The kernels main after being handed off from the bootloader
 ///
@@ -152,7 +152,7 @@ fn test_print() {
 
 #[test_case]
 fn test_println() {
-    use printer::{println, print};
+    use printer::{print, println};
     println!()
 }
 
