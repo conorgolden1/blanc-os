@@ -1,177 +1,133 @@
-use bootloader::boot_info::TlsTemplate;
-use memory::{kpbox::KpBox, phys::FRAME_ALLOCATOR, KERNEL_PAGE_TABLE};
-use printer::{print, println};
+//! Allocates and loads an given ELF buffer into memory at
+//! an offset 
+// 
+// Considerations
+// 
+// We might want to consider keeping track of each segment loaded into memory and there type
+// given there size and there starting address, so when a page fault occurs we can reference
+// the tasks segment size to see if it is out of bounds or more memory can be allocated to it.
+// Also the way that this is set up, is meant for processes that are position independent executables
+use elfloader::{ElfLoader, TypeRela64};
+use memory::{active_level_4_table, phys::FRAME_ALLOCATOR};
+
 use x86_64::{
+    align_up,
     structures::paging::{
-        mapper::MapperAllSizes, FrameAllocator, Page, PageSize, PageTable, PageTableFlags,
-        PhysFrame, Size4KiB,
+        FrameAllocator, Mapper, Page, PageSize, PageTableFlags, RecursivePageTable, Size4KiB,
     },
     VirtAddr,
 };
-use xmas_elf::{
-    header,
-    program::{self},
-    ElfFile,
-};
-pub struct Loader<'a, M> {
-    elf_file: ElfFile<'a>,
-    inner: Inner<'a, M>,
+extern crate alloc;
+use alloc::vec::Vec;
+
+pub fn align_bin(bin: &[u8]) -> Vec<u8> {
+    let mut vec = Vec::<u8>::new();
+    vec.resize(bin.len(), 0);
+    vec.clone_from_slice(bin);
+    vec
 }
 
-impl<'a, M> Loader<'a, M>
-where
-    M: MapperAllSizes,
-{
-    pub fn new(bytes: &'a [u8], page_table: &'a mut M) -> Result<Self, &'static str> {
-        println!("Elf file loaded at {:#p}", bytes);
 
-        let elf_file = ElfFile::new(bytes)?;
-        header::sanity_check(&elf_file)?;
+/// This struct represents a loaded ELF executable in memory starting at an
+/// offset. Using the [elfloader] crate we allocate memory for the elf
+/// and load the elf into the new memory section at a given offset
+pub struct ElfMemory {
+    /// Virtual base where the elf mapping starts at
+    vbase: u64,
+}
 
-        let loader = Loader {
-            elf_file,
-            inner: Inner { page_table },
-        };
-
-        Ok(loader)
+impl ElfMemory {
+    /// Create a new ElfMemory at an offset in virtual memory
+    pub fn new(vbase: u64) -> Self {
+        Self { vbase }
     }
 
-    pub fn load_segments(&mut self) -> Result<Option<TlsTemplate>, &'static str> {
-        let mut _tls_template = None;
-        for program_header in self.elf_file.program_iter() {
-            program::sanity_check(program_header, &self.elf_file)?;
+    /// Get a reference to loaded elf base memory address.
+    pub fn vbase(&self) -> &u64 {
+        &self.vbase
+    }
+}
 
-            match program_header.get_type()? {
-                program::Type::Load => self.inner.handle_load_segment(program_header)?,
-                program::Type::Tls => todo!(),
-                program::Type::Null
-                | program::Type::Dynamic
-                | program::Type::Interp
-                | program::Type::Note
-                | program::Type::ShLib
-                | program::Type::Phdr
-                | program::Type::GnuRelro
-                | program::Type::OsSpecific(_)
-                | program::Type::ProcessorSpecific(_) => {}
+impl ElfLoader for ElfMemory {
+    /// Allocate the required memory for the elf from the offset
+    /// for each of the loadable elf header
+    fn allocate(
+        &mut self,
+        load_headers: elfloader::LoadableHeaders,
+    ) -> Result<(), elfloader::ElfLoaderErr> {
+        let mut current_pt = RecursivePageTable::new(active_level_4_table()).unwrap();
+        for header in load_headers {
+            let _flags = header.flags();
+            let ptf = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+
+            let start = self.vbase + header.virtual_addr();
+            let end = align_up(start + header.mem_size(), Size4KiB::SIZE);
+            let start_virt = VirtAddr::new(start);
+            let end_virt = VirtAddr::new(end - 1);
+            let start_page = Page::<Size4KiB>::containing_address(start_virt);
+            let end_page = Page::<Size4KiB>::containing_address(end_virt);
+            let page_range = Page::range_inclusive(start_page, end_page);
+            for page in page_range {
+                let frame = FRAME_ALLOCATOR.wait().unwrap().allocate_frame().unwrap();
+
+                unsafe {
+                    let result = current_pt.map_to_with_table_flags(
+                        page,
+                        frame,
+                        ptf,
+                        PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+                        FRAME_ALLOCATOR.wait().as_mut().unwrap(),
+                    );
+
+                    match result {
+                        Ok(mapper_flush) => mapper_flush.flush(),
+                        Err(err) => panic!("{:#?} => {:#?}", page, err),
+                    }
+                }
             }
         }
 
-        Ok(_tls_template)
+        Ok(())
     }
 
-    pub(super) fn map_page_box(&mut self, b: &KpBox<impl ?Sized>) {
-        use core::convert::TryFrom;
-        for i in 0..b.bytes().as_num_of_pages::<Size4KiB>().as_usize() {
-            let off = Size4KiB::SIZE * u64::try_from(i).unwrap();
-            let page = Page::from_start_address(b.virt_addr() + off).expect("Page is not aligned.");
-            let frame = FRAME_ALLOCATOR.wait().unwrap().allocate_frame().unwrap();
-            self.map(page, frame);
-        }
-    }
-
-    fn map(&mut self, page: Page<Size4KiB>, frame: PhysFrame<Size4KiB>) {
-        let flags =
-            PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
-        unsafe {
-            self.inner
-                .page_table
-                .map_to(page, frame, flags, FRAME_ALLOCATOR.wait().as_mut().unwrap())
-                .unwrap()
-                .flush()
-        };
-    }
-
-    pub fn get_table(&'a mut self) -> &'a mut M {
-        self.inner.page_table
-    }
-
-    pub fn entry_point(&self) -> VirtAddr {
-        VirtAddr::new(self.elf_file.header.pt2.entry_point())
-    }
-}
-
-struct Inner<'a, M> {
-    page_table: &'a mut M,
-}
-
-impl<'a, M> Inner<'a, M>
-where
-    M: MapperAllSizes,
-{
-    pub(crate) fn handle_load_segment(
+    /// Load the elf segment from the static memory location
+    /// into the buffer obtained from allocate
+    fn load(
         &mut self,
-        segment: program::ProgramHeader,
-    ) -> Result<(), &'static str> {
-        println!("Handling Load Segment, {:x?}", segment);
+        flags: elfloader::Flags,
+        base: elfloader::VAddr,
+        region: &[u8],
+    ) -> Result<(), elfloader::ElfLoaderErr> {
+        let start = self.vbase + base;
 
-        let virt_start_addr = VirtAddr::new(segment.offset() + segment.virtual_addr());
-        let virt_end_addr = virt_start_addr + segment.mem_size();
-        let virt_start_page = Page::<Size4KiB>::containing_address(virt_start_addr);
-        let virt_end_page = Page::<Size4KiB>::containing_address(virt_end_addr);
-        let page_range = Page::range_inclusive(virt_start_page, virt_end_page);
+        let start_ptr = start as *mut u8;
 
-        let mut segment_flags = PageTableFlags::PRESENT;
-        if !segment.flags().is_execute() {
-            segment_flags |= PageTableFlags::NO_EXECUTE;
+        for (offset, entry) in region.iter().enumerate() {
+            unsafe {
+                *(start_ptr.add(offset)) = *entry;
+            }
         }
-        if segment.flags().is_write() {
-            segment_flags |= PageTableFlags::WRITABLE;
-        }
-
-        for page in page_range {
-            let frame = FRAME_ALLOCATOR
-                .wait()
-                .unwrap()
-                .allocate_frame()
-                .ok_or("Frame Allocation Error")?;
-
-            let flusher = unsafe {
-                self.page_table
-                    .map_to(
-                        page,
-                        frame,
-                        segment_flags,
-                        FRAME_ALLOCATOR.wait().as_mut().unwrap(),
-                    )
-                    .map_err(|_err| "map_to failed")?
-            };
-            flusher.ignore();
-        }
-
-        // // Handle .bss section (mem_size > file_size)
-        // if segment.mem_size() > segment.file_size() {
-        //     // .bss section (or similar), which needs to be mapped and zeroed
-        //     self.handle_bss_section(&segment, segment_flags)?;
-        // }
 
         Ok(())
     }
-}
 
-#[derive(Default)]
-pub struct Pml4Creator {
-    pml4: KpBox<PageTable>,
-}
-impl Pml4Creator {
-    pub fn create(mut self) -> KpBox<PageTable> {
-        self.map_kernel_area();
-        self.enable_recursive_paging();
-        self.pml4
-    }
+    /// TODO
+    fn relocate(
+        &mut self,
+        entry: &elfloader::Rela<elfloader::P64>,
+    ) -> Result<(), elfloader::ElfLoaderErr> {
+        let typ = TypeRela64::from(entry.get_type());
+        let addr: *mut u64 = (self.vbase + entry.get_offset()) as *mut u64;
 
-    fn enable_recursive_paging(&mut self) {
-        let a = PhysFrame::containing_address(self.pml4.phys_addr());
-        println!("NEW PT : {:#?}", a);
-        let f =
-            PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
-        self.pml4[511].set_frame(a, f);
-    }
-
-    fn map_kernel_area(&mut self) {
-        self.pml4[0] = KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table()[0].clone();
-        self.pml4[256] = KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table()[256].clone();
-        for i in 507..512 {
-            self.pml4[i] = KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table()[i].clone();
+        match typ {
+            TypeRela64::R_RELATIVE => {
+                unsafe { *addr = self.vbase() + entry.get_addend() };
+                Ok(())
+            }
+            _ => todo!("{:#?} else not yet implemented", typ)
         }
+        
     }
 }
+
+
