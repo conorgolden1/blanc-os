@@ -1,3 +1,4 @@
 /target
 /applications/*/target
 *.txt
+*.lock
