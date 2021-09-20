@@ -1,75 +1,81 @@
 use core::{
-    convert::TryInto,
     ops::Index,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use crate::elf::Pml4Creator;
-use memory::{active_level_4_table, kpbox::KpBox, swap_to_kernel_table, RECURSIVE_INDEX};
-use printer::{print, println};
+use elfloader::ElfBinary;
+use memory::{
+    kpbox::KpBox, swap_to_kernel_table, KERNEL_PAGE_TABLE, RECURSIVE_INDEX,
+};
+
 use x86_64::{
     registers::control::Cr3,
-    structures::paging::{PageSize, PageTable, PhysFrame, RecursivePageTable, Size4KiB},
+    structures::paging::{
+        PageTable, PageTableFlags, PhysFrame,
+    },
     VirtAddr,
 };
+
+
+use crate::elf::ElfMemory;
 
 extern crate alloc;
 pub struct Task {
     task_id: TaskID,
     pub entry: VirtAddr,
-    pub pml4: KpBox<PageTable>,
+    page_table : KpBox<PageTable>,
     state: TaskState,
-    pub stack: KpBox<[u8]>,
-    // stack_frame: KpBox<StackFrame>,
     pub name: &'static str,
     pub ring: Ring,
 }
 
 impl Task {
-    const STACK_SIZE: u64 = Size4KiB::SIZE;
 
-    pub fn binary(name: &'static str, bin: &[u8], ring: Ring) -> Task {
-        let mut page_table = Pml4Creator::default().create();
-        println!("Writing {} Page_Table", name);
-        println!("BEFORE CR3 Write {:#?}", Cr3::read().0);
+    ///
+    ///
+    /// name   : Name of the executable (TODO consider making this an option)
+    /// bin    : A slice of bytes containing the executable data
+    /// ring   : Ring that this executable will be in (TODO consider making default ring 3)
+    /// offset : Offset in virtual memory that the program will be loaded too (TODO consider making a default offset)
+    pub fn binary(
+        name: Option<&'static str>,
+        bin: &[u8],
+        ring: Option<Ring>,
+        offset: Option<u64>,
+    ) -> Task {
+        let offset = offset.unwrap_or(0x81_FF00_0000);
+
+        let ring = ring.unwrap_or(Ring::Ring3);
+
+        let name = name.unwrap_or("");
+
+        let page_table = Pml4Creator::default().create();
+
         unsafe {
             Cr3::write(
                 PhysFrame::containing_address(page_table.index(511).addr()),
                 Cr3::read().1,
             )
         };
-        println!("AFTER CR3 Write {:#?}", Cr3::read().0);
         *RECURSIVE_INDEX.wait().unwrap().lock() = 511;
         x86_64::instructions::tlb::flush_all();
 
-        let mut pml4 = RecursivePageTable::new(active_level_4_table()).unwrap();
+        let elf = ElfBinary::new(bin).unwrap();
+        let mut loader = ElfMemory::new(offset);
+        elf.load(&mut loader).unwrap();
 
-        let mut shell_proc = crate::elf::Loader::new(bin, &mut pml4).unwrap();
-        shell_proc.load_segments().unwrap();
+        let entry = VirtAddr::new(elf.entry_point() + offset);
 
-        let entry = shell_proc.entry_point();
-        let stack = KpBox::new_slice(0, Self::STACK_SIZE.try_into().unwrap());
-        let stack_bottom = stack.virt_addr() + stack.bytes().as_usize();
-        // let stack_frame = KpBox::from(match ring {
-        //     Ring::Ring0 => StackFrame::kernel(entry, stack_bottom),
-        //     Ring::Ring3 => StackFrame::user(entry, stack_bottom),
-        // });
-
-        println!("Mapping {} stack", name);
-        // shell_proc.map_page_box(&stack);
-        // shell_proc.map_page_box(&stack_frame);
-
+        
         swap_to_kernel_table();
 
         Self {
             task_id: TaskID::allocate(),
             entry,
-            state: TaskState::Ready,
-            //stack_frame,
-            stack,
+            state: TaskState::New,
             ring,
             name,
-            pml4: page_table,
+            page_table,
         }
     }
 
@@ -81,6 +87,10 @@ impl Task {
         self.state
     }
 
+    pub fn entry_point(&self) -> u64 {
+        self.entry.as_u64()
+    }
+
     // pub fn stack_frame_top_addr(&self) -> VirtAddr {
     //     self.stack_frame.virt_addr()
     // }
@@ -89,6 +99,16 @@ impl Task {
     //     let b = self.stack_frame.bytes();
     //     self.stack_frame_top_addr() + b.as_usize()
     // }
+
+    /// Set the task's state.
+    pub fn set_state(&mut self, state: TaskState) {
+        self.state = state;
+    }
+
+    /// Get a reference to the task's page table.
+    pub fn page_table(&self) -> &KpBox<PageTable> {
+        &self.page_table
+    }
 }
 
 /// Ring enum representing what ring the task is for
@@ -124,6 +144,10 @@ impl TaskID {
 /// An enum describing the state of a task
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TaskState {
+    /// Process has just been created and needs to be jumped
+    /// to from its entry point not a context switch
+    New,
+
     /// Process is ready for execution
     Ready,
 
@@ -150,4 +174,31 @@ pub struct Context {
     rbx: u64,
     rflags: u64,
     rip: u64,
+}
+
+#[derive(Default)]
+pub struct Pml4Creator {
+    pml4: KpBox<PageTable>,
+}
+impl Pml4Creator {
+    pub fn create(mut self) -> KpBox<PageTable> {
+        self.map_kernel_area();
+        self.enable_recursive_paging();
+        self.pml4
+    }
+
+    fn enable_recursive_paging(&mut self) {
+        let a = PhysFrame::containing_address(self.pml4.phys_addr());
+        let f =
+            PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+        self.pml4[511].set_frame(a, f);
+    }
+
+    fn map_kernel_area(&mut self) {
+        self.pml4[0] = KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table()[0].clone();
+        self.pml4[256] = KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table()[256].clone();
+        for i in 507..512 {
+            self.pml4[i] = KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table()[i].clone();
+        }
+    }
 }
