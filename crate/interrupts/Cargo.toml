@@ -8,6 +8,7 @@ edition = "2018"
 [dependencies]
 x86_64 = "0.14.4"
 spin = "0.5.2"
+os_units = "0.4.2"
 
 # Pic Controller
 pic8259 = "0.10.1"
@@ -22,6 +23,8 @@ coop = { path = "../coop" }
 
 # Memory
 memory = { path = "../memory" }
+
+serial = { path = "../serial" }
 
 # Task
 task = { path = "../task" }

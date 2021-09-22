@@ -13,7 +13,11 @@ pub fn init_idt() {
 use coop::keyboard;
 use coop::mouse;
 use lazy_static::lazy_static;
+use memory::active_level_4_table;
+use memory::swap_to_kernel_table;
+use os_units::NumOfPages;
 use printer::{print, println};
+use serial::serial_println;
 use task::scheduler::Scheduler;
 use x86_64::structures::idt::InterruptDescriptorTable;
 
@@ -87,7 +91,7 @@ pub const PIC_1_OFFSET: u8 = 32;
 /// Remapped PIC 2 controller offset in the interrupt controller table
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
-pub static READY: spin::Mutex<bool> = spin::Mutex::new(false); 
+pub static READY: spin::Mutex<bool> = spin::Mutex::new(false);
 
 use x86_64::structures::idt::InterruptStackFrame;
 use x86_64::structures::idt::SelectorErrorCode;
@@ -230,23 +234,30 @@ extern "x86-interrupt" fn page_fault_handler(
     _error_code: PageFaultErrorCode,
 ) {
     let acc_addr = Cr2::read();
-    println!("EXCEPTION: PAGE FAULT");
-    println!("Accessed Address: {:?}", acc_addr);
-    println!("Error Code: {:?}", _error_code);
-    println!("{:#?}", _stack_frame);
+    // println!("EXCEPTION: PAGE FAULT");
+    // println!("Accessed Address: {:?}", acc_addr);
+    // println!("Error Code: {:?}", _error_code);
+    // println!("{:#?}", _stack_frame);
+    match _error_code {
+        PageFaultErrorCode::INSTRUCTION_FETCH | PageFaultErrorCode::CAUSED_BY_WRITE => {
+            let mut rpt = RecursivePageTable::new(memory::active_level_4_table()).unwrap();
+            let page = Page::<Size4KiB>::containing_address(acc_addr);
+            let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+            unsafe {
+                match rpt.update_flags(page, flags) {
+                    Ok(_) => (),
+                    Err(x86_64::structures::paging::mapper::FlagUpdateError::PageNotMapped) => {
+                        memory::virt::allocate_pages(acc_addr, NumOfPages::<Size4KiB>::new(1))
+                    }
+                    Err(e) => panic!("{:#?}", e),
+                }
+                PICS.lock().notify_end_of_interrupt(0xE);
+            }
+        }
 
-    if _error_code == PageFaultErrorCode::INSTRUCTION_FETCH {
-        let mut rpt = RecursivePageTable::new(memory::active_level_4_table()).unwrap();
-        let page = Page::<Size4KiB>::containing_address(acc_addr);
-        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-        unsafe {
-            rpt.update_flags(page, flags).unwrap();
-            PICS.lock().notify_end_of_interrupt(0xE);
-        }
-    } else {
-        loop {
+        _ => loop {
             x86_64::instructions::hlt();
-        }
+        },
     }
 }
 
@@ -257,11 +268,21 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
     }
+
     if *READY.lock() {
+        x86_64::instructions::interrupts::disable();
+        let mut rpt = RecursivePageTable::new(active_level_4_table()).unwrap();
+        for (i, entry) in rpt.level_4_table().iter().enumerate() {
+            if !entry.is_unused() {
+                println!("{} {:#?}", i, entry);
+            }
+        }
+
+        println!("Disabled int {:p}", &IDT);
         Scheduler::run();
     }
-    
 
+    // println!("ending timer interrupt");
 }
 
 ///Double fault interrupt panics and prints the stack frame
