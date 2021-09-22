@@ -1,7 +1,6 @@
-
 pub const HEAP_START: usize = 0xFFFF_FF00_004A_0000;
 
-pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
+pub const HEAP_SIZE: usize = 200 * 1024; // 200 KiB
 
 extern crate alloc;
 
@@ -77,5 +76,3 @@ fn align_up(addr: usize, align: usize) -> usize {
         addr - remainder + align
     }
 }
-
-

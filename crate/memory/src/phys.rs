@@ -110,7 +110,10 @@ unsafe impl FrameAllocator<Size4KiB> for PhysFrameAllocator {
     /// if there, else no frames are available and return None
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
         let mut bm_ptr = BITMAP_START as *mut u64;
-        while bm_ptr < (BITMAP_START as u64 + (self.bit_map_region.end - self.bit_map_region.start)) as *mut u64 {
+        while bm_ptr
+            < (BITMAP_START as u64 + (self.bit_map_region.end - self.bit_map_region.start))
+                as *mut u64
+        {
             let mut quadword = unsafe { *bm_ptr } as u64;
             let qw_clone = quadword;
             let mut index = 0;
@@ -121,9 +124,9 @@ unsafe impl FrameAllocator<Size4KiB> for PhysFrameAllocator {
                         // Usable PhysFrame
                         unsafe { *bm_ptr = qw_clone | (0x01 << index) };
                         // Return the frame containing the physical address of the bit in the bitmap
-                        return Some(self.frame_from_bit_index(
-                            bm_ptr as u64 - BITMAP_START as u64 + index,
-                        ));
+                        return Some(
+                            self.frame_from_bit_index(bm_ptr as u64 - BITMAP_START as u64 + index),
+                        );
                     }
                     index += 1;
                     quadword >>= 1;
@@ -168,7 +171,8 @@ fn map_bit_frames(
     // Create pages in the bit map region
     let page_range = {
         let bit_map_start = VirtAddr::new(BITMAP_START as u64);
-        let bit_map_end = VirtAddr::new(BITMAP_START as u64 + (bit_map_region.end - bit_map_region.start));
+        let bit_map_end =
+            VirtAddr::new(BITMAP_START as u64 + (bit_map_region.end - bit_map_region.start));
         let bit_map_start_page = Page::<Size4KiB>::containing_address(bit_map_start);
         let bit_map_end_page = Page::<Size4KiB>::containing_address(bit_map_end);
         Page::range_inclusive(bit_map_start_page, bit_map_end_page)

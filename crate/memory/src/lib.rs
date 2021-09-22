@@ -1,16 +1,16 @@
 //! OS Memory functionality and Structures
 #![no_std]
 #![feature(asm)]
-#![feature(const_mut_refs,
-    lang_items,
-    alloc_error_handler)]
-
+#![feature(const_mut_refs, lang_items, alloc_error_handler)]
 
 use bootloader::boot_info::Optional;
-use core::{ops::Index};
+use core::ops::Index;
 use spin::{Mutex, Once};
 use virt::deallocate_pages;
-use x86_64::{registers::control::Cr3, structures::paging::{PageTable, RecursivePageTable}};
+use x86_64::{
+    registers::control::Cr3,
+    structures::paging::{PageTable, RecursivePageTable},
+};
 
 extern crate alloc;
 
@@ -54,14 +54,23 @@ pub fn active_level_4_table() -> &'static mut PageTable {
     unsafe { &mut *level_4_table }
 }
 
-
-
 ///TODO
 pub fn swap_to_kernel_table() {
     *RECURSIVE_INDEX.wait().unwrap().lock() = 508;
-    unsafe {Cr3::write( KERNEL_PAGE_TABLE.wait().unwrap().lock().level_4_table().index(508).frame().unwrap(), Cr3::read().1)};
+    unsafe {
+        Cr3::write(
+            KERNEL_PAGE_TABLE
+                .wait()
+                .unwrap()
+                .lock()
+                .level_4_table()
+                .index(508)
+                .frame()
+                .unwrap(),
+            Cr3::read().1,
+        )
+    };
     x86_64::instructions::tlb::flush_all();
-
 }
 
 #[alloc_error_handler]
